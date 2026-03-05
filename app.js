@@ -115,6 +115,7 @@ const dict = {
         lblIncludeRating: "Include Rating", msgCopied: "Table Copied!",
         shipOptions: "Shipping Options", noResults: "No exact matches found.", refLabel: "Quote id:",
         liabNew: "NEW:", liabUsed: "USED:",
+        resWarningMsg: "<strong>Warning:</strong> Residential delivery detected, but Lift Gate or Delivery Appointment is missing from accessorials. Please verify requirements with the client.",
         disclaimerMsg: "⚠️ <strong>Important Notice:</strong> This tool provides recommendations based on predefined rules. Always double-check information and requirements based on client requests and updated carrier tariffs.",
         clearBtn: "Clear", clearAllBtn: "Clear All", autoCopy: "Auto-Parse on Paste", lblBatchMode: "Batch Mode",
         optSortCheap: "Sort: Cheapest", optSortFast: "Sort: Fastest", optSortRate: "Sort: Best Rating", bestPick: "Best Pick",
@@ -446,7 +447,6 @@ function processData() {
                 let lowerPart = cleanPart.toLowerCase();
                 if (!cleanPart || cleanPart.includes('$')) return;
 
-                // BULLETPROOF: Orden estricto de Específico a General
                 const accRules = [
                     { name: 'Delivery Appointment', keywords: ['appointment', 'appt', 'notify', 'notification'] },
                     { name: 'Residential Delivery', keywords: ['residential delivery', 'residence delivery'] },
@@ -465,7 +465,6 @@ function processData() {
                 let matchedRule = accRules.find(r => r.keywords.some(kw => lowerPart.includes(kw)));
                 let finalName = matchedRule ? matchedRule.name : cleanPart;
 
-                // Evitar basura larga o tags duplicados
                 if (finalName.length < 40 && !q.accessorials.includes(finalName)) {
                     q.accessorials.push(finalName);
                 }
@@ -824,7 +823,7 @@ function renderTable() {
 
         const trGroup = document.createElement('tr');
         trGroup.classList.add('group-header-row');
-        let tableGroupTitle = isBatch ? `📦 ${q.label}: ${q.from || 'Origin'} ➡️ ${q.to || 'Dest'}` : `📦 Priority 1 Quote ID: ${q.id !== '-' ? q.id : 'N/A'} | ${q.from || 'Origin'} ➡️ ${q.to || 'Dest'}`;
+        let tableGroupTitle = isBatch ? `📦 ${q.id !== '-' ? q.id + ' | ' : ''}${q.label}: ${q.from || 'Origin'} ➡️ ${q.to || 'Dest'}` : `📦 ${q.id !== '-' ? q.id : 'N/A'} | Priority 1 Quote | ${q.from || 'Origin'} ➡️ ${q.to || 'Dest'}`;
         trGroup.innerHTML = `<td colspan="8" style="font-weight: bold; color: var(--primary); font-size: 0.9rem; border-top: 2px solid var(--primary);">${tableGroupTitle}</td>`;
         tbody.appendChild(trGroup);
 
@@ -834,7 +833,6 @@ function renderTable() {
             let htmlNotes = row.warnings.map(w => `<div class="note-text" style="color:var(--warning)"><span class="note-icon">⚠️</span><span>${w}</span></div>`).join('') + row.infos.map(i => `<div class="note-text"><span class="note-icon">ℹ️</span><span>${i}</span></div>`).join('');
             let daysText = String(row.days).trim(); if(daysText !== '') { if (daysText === '1') daysText += ` ${t.day}`; else if (!isNaN(daysText) || daysText.match(/^\d+(\s*-\s*\d+)?$/)) daysText += ` ${t.days}`; }
 
-            // Solo mostramos iconos en la interfaz web
             const domain = getCarrierDomain(row.normalizedName); const iconHtml = domain ? `<img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" class="carrier-icon" onerror="this.style.display='none'">` : '';
             let toolsHtml = ''; const cInfo = carrierInfo[row.normalizedName.toLowerCase()];
             if(cInfo) {
@@ -937,7 +935,8 @@ function getReportHTML(isPdf = false) {
 
         html += `<div style="page-break-inside: avoid; margin-bottom: 24px;">`;
 
-        let reportGroupTitle = isBatch ? `📦 ${q.label} ${q.id !== '-' ? `(ID: ${q.id})` : ''}` : `📦 Priority 1 Quote ID: ${q.id !== '-' ? q.id : 'N/A'}`;
+        // BULLETPROOF ID FORMATTING: 📦 38446367 | Priority 1 Quote
+        let reportGroupTitle = isBatch ? `📦 ${q.id !== '-' ? q.id + ' | ' : ''}${q.label}` : `📦 ${q.id !== '-' ? q.id : 'N/A'} | Priority 1 Quote`;
 
         html += `
             <h3 style="color: ${th.primary}; border-bottom: 2px solid ${th.border}; padding-bottom: 8px; margin-bottom: 16px;">${reportGroupTitle}</h3>
@@ -1008,7 +1007,6 @@ function getReportHTML(isPdf = false) {
                 rateHtml += `<br><strong style="font-size: 13px; color: ${th.text};">${t.lblTotal}: $${(row.cost + insVal).toFixed(2)}</strong>`;
             }
 
-            // BULLETPROOF: Sin Iconos en Exportación
             let rowHTML = `<tr>
                 <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.text}; vertical-align: top;"><strong style="vertical-align: middle;">${row.normalizedName}</strong>${rateTypeHtml}${carrierExtra}</td>
                 <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.primary}; font-weight: bold; font-size: 14px; vertical-align: top;">${rateHtml}</td>`;
