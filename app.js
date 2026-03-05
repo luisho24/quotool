@@ -154,13 +154,8 @@ function setLang(lang) {
     document.getElementById('hazmatSearch').placeholder = dict[lang].hazmatPlaceholder;
     document.getElementById('disclaimerText').innerHTML = dict[lang].disclaimerMsg;
     
-    if(appQuotes.length === 0) {
-        document.getElementById('emptyText').innerText = dict[lang].emptyText;
-        document.getElementById('resultCount').innerText = "Results";
-    } else {
-        updateSummaryUI();
-        renderTable();
-    }
+    updateSummaryUI();
+    renderTable();
     searchHazmat();
 }
 
@@ -334,6 +329,14 @@ function clearAllDataInternal() {
     document.getElementById('exportMargin').checked = false;
     appQuotes = [];
     lastParsedText = "";
+    
+    // BULLETPROOF: Desactivar botones de exportación inmediatamente al limpiar
+    const btnCopy = document.getElementById('copyBtn');
+    const btnCsv = document.getElementById('exportBtn');
+    const btnPdf = document.getElementById('exportPdfBtn');
+    if (btnCopy) btnCopy.disabled = true;
+    if (btnCsv) btnCsv.disabled = true;
+    if (btnPdf) btnPdf.disabled = true;
 }
 
 function normalizeCarrierName(name) {
@@ -726,12 +729,28 @@ function renderTable() {
     const tbody = document.querySelector('#quotesTable tbody');
     const headerRow = document.getElementById('tableHeadersRow');
     
+    const btnCopy = document.getElementById('copyBtn');
+    const btnCsv = document.getElementById('exportBtn');
+    const btnPdf = document.getElementById('exportPdfBtn');
+    
     if (appQuotes.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state" id="emptyText">${dict[currentLang].emptyText}</div></td></tr>`;
         document.getElementById('resultCount').innerText = "Results";
         document.getElementById('internalColsFilters').style.display = 'none';
+        
+        // BULLETPROOF: Disable export buttons when empty
+        if(btnCopy) btnCopy.disabled = true;
+        if(btnCsv) btnCsv.disabled = true;
+        if(btnPdf) btnPdf.disabled = true;
+        
         return;
     }
+    
+    // BULLETPROOF: Enable export buttons when data exists
+    if(btnCopy) btnCopy.disabled = false;
+    if(btnCsv) btnCsv.disabled = false;
+    if(btnPdf) btnPdf.disabled = false;
+
     tbody.innerHTML = ''; 
     const t = dict[currentLang]; 
     
@@ -1000,6 +1019,11 @@ function getReportHTML(isPdf = false) {
 
             let carrierExtra = includeRating ? `<br>${emailStars}` : '';
             if(row.quoteNumber !== '-') carrierExtra += `<br><span style="font-size:10px; color:${th.textMuted};">${t.refLabel} ${row.quoteNumber}</span>`;
+            
+            let normalizedName = normalizeCarrierName(row.carrier);
+            let domain = getCarrierDomain(normalizedName);
+            
+            let iconHtml = (!isPdf && domain) ? `<img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 6px; border-radius: 2px; margin-bottom: 2px;" alt="">` : '';
 
             let rateHtml = `$${row.cost.toFixed(2)}`;
             if (insVal > 0) {
@@ -1008,7 +1032,7 @@ function getReportHTML(isPdf = false) {
             }
 
             let rowHTML = `<tr>
-                <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.text}; vertical-align: top;"><strong style="vertical-align: middle;">${row.normalizedName}</strong>${rateTypeHtml}${carrierExtra}</td>
+                <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.text}; vertical-align: top;">${iconHtml}<strong style="vertical-align: middle;">${row.normalizedName}</strong>${rateTypeHtml}${carrierExtra}</td>
                 <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.primary}; font-weight: bold; font-size: 14px; vertical-align: top;">${rateHtml}</td>`;
             
             if (hasInternalCols) {
