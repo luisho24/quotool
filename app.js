@@ -21,22 +21,18 @@ function toggleExperimental(isEnabled) {
     } else {
         document.body.classList.remove('show-experimental');
         
-        // Security Lock: If turning off Experimental, disable Batch mode and clear data 
-        // so no invisible quotes are trapped in memory.
         let batchCheckbox = document.getElementById('batchMode');
         if (batchCheckbox && batchCheckbox.checked) {
             batchCheckbox.checked = false;
             toggleBatchMode();
             clearAllData();
         } else {
-            // Limpieza de filtros fantasma para evitar errores de tarifas en background
             document.getElementById('destFilter').value = 'standard';
             document.getElementById('productFilter').value = 'none';
             document.getElementById('insuranceInput').value = '';
             document.getElementById('liftgateFilter').checked = false;
             document.getElementById('cubicFilter').checked = false;
             
-            // Actualizar la cotización actual si existe
             if (appQuotes.length === 1) {
                 let q = appQuotes[0];
                 q.destType = 'standard';
@@ -80,7 +76,7 @@ const dict = {
         statOk: "Compatible", statWarn: "Con Restricciones", statBanned: "Prohibido:", statRestr: "Restringido:", 
         day: "Día", days: "Días", rateLTL: "LTL", rateVol: "Volumen",
         warnLiftgate: "Precaución Liftgate", warnCubic: "Regla Capacidad/Longitud", placeholder: "Pega aquí todo el texto de tu cotización (Quote Id, From, To, Items, Rates)...",
-        btnCopy: "📋 Copiar para Correo", btnExport: "📁 Exportar CSV", exportPdfBtn: "📄 PDF", lblIncludeNotes: "Incluir Notas", 
+        copyBtn: "📋 Copiar para Correo", exportBtn: "📁 Exportar CSV", exportPdfBtn: "📄 PDF", lblIncludeNotes: "Incluir Notas", 
         lblIncludeRating: "Incluir Calificación", msgCopied: "¡Copiado al Portapapeles!",
         shipOptions: "Opciones de Envío", noResults: "Sin resultados exactos.", refLabel: "Quote id:",
         liabNew: "NEW:", liabUsed: "USED:",
@@ -115,11 +111,10 @@ const dict = {
         statOk: "Compatible", statWarn: "With Restrictions", statBanned: "Banned:", statRestr: "Restricted:", 
         day: "Day", days: "Days", rateLTL: "LTL", rateVol: "Volume",
         warnLiftgate: "Liftgate Warning", warnCubic: "Cubic/Length Rule", placeholder: "Paste your full quote text here (Quote Id, From, To, Items, Rates)...",
-        btnCopy: "📋 Copy for Email", btnExport: "📁 CSV", exportPdfBtn: "📄 PDF", lblIncludeNotes: "Include Notes", 
+        copyBtn: "📋 Copy for Email", exportBtn: "📁 CSV", exportPdfBtn: "📄 PDF", lblIncludeNotes: "Include Notes", 
         lblIncludeRating: "Include Rating", msgCopied: "Table Copied!",
         shipOptions: "Shipping Options", noResults: "No exact matches found.", refLabel: "Quote id:",
         liabNew: "NEW:", liabUsed: "USED:",
-        resWarningMsg: "<strong>Warning:</strong> Residential delivery detected, but Lift Gate or Delivery Appointment is missing from accessorials. Please verify requirements with the client.",
         disclaimerMsg: "⚠️ <strong>Important Notice:</strong> This tool provides recommendations based on predefined rules. Always double-check information and requirements based on client requests and updated carrier tariffs.",
         clearBtn: "Clear", clearAllBtn: "Clear All", autoCopy: "Auto-Parse on Paste", lblBatchMode: "Batch Mode",
         optSortCheap: "Sort: Cheapest", optSortFast: "Sort: Fastest", optSortRate: "Sort: Best Rating", bestPick: "Best Pick",
@@ -147,7 +142,7 @@ function setLang(lang) {
     document.getElementById('btn-es').classList.toggle('active', lang === 'es');
     document.getElementById('btn-en').classList.toggle('active', lang === 'en');
     
-    const keys = ['mainTitle', 'step1Title', 'analyzeBtn', 'step2Title', 'destLabel', 'optStd', 'prodLabel', 'optNone', 'optTob', 'optAlc', 'optVap', 'optFire', 'insLabel', 'liftLabel', 'cubicLabel', 'lblIncludeNotes', 'lblIncludeRating', 'clearBtn', 'clearAllBtn', 'lblBatchMode', 'optSortCheap', 'optSortFast', 'optSortRate', 'lblEmailTheme', 'appThmDef', 'appThmMono', 'appThmViv', 'appThmFem', 'appThmNav', 'appThmCorp', 'appThmFor', 'appThmEar', 'appThmMid', 'appThmSla', 'thmDef', 'thmMono', 'thmViv', 'thmFem', 'thmNav', 'thmCorp', 'thmFor', 'thmEar', 'thmMid', 'thmSla', 'toastMsg', 'btn-tab-analyzer', 'btn-tab-extras', 'extHazTitle', 'extHazDesc', 'exportPdfBtn', 'lblCarrierCost', 'lblMargin', 'exportBtn'];
+    const keys = ['mainTitle', 'step1Title', 'analyzeBtn', 'step2Title', 'destLabel', 'optStd', 'prodLabel', 'optNone', 'optTob', 'optAlc', 'optVap', 'optFire', 'insLabel', 'liftLabel', 'cubicLabel', 'lblIncludeNotes', 'lblIncludeRating', 'clearBtn', 'clearAllBtn', 'lblBatchMode', 'optSortCheap', 'optSortFast', 'optSortRate', 'lblEmailTheme', 'appThmDef', 'appThmMono', 'appThmViv', 'appThmFem', 'appThmNav', 'appThmCorp', 'appThmFor', 'appThmEar', 'appThmMid', 'appThmSla', 'thmDef', 'thmMono', 'thmViv', 'thmFem', 'thmNav', 'thmCorp', 'thmFor', 'thmEar', 'thmMid', 'thmSla', 'toastMsg', 'btn-tab-analyzer', 'btn-tab-extras', 'extHazTitle', 'extHazDesc', 'exportPdfBtn', 'lblCarrierCost', 'lblMargin', 'exportBtn', 'copyBtn'];
     keys.forEach(k => {
         const el = document.getElementById(k);
         if (el) el.innerText = dict[lang][k];
@@ -156,7 +151,6 @@ function setLang(lang) {
     document.getElementById('lblAutoCopy').innerText = dict[lang].autoCopy;
     document.getElementById('inputData').placeholder = dict[lang].placeholder;
     document.getElementById('hazmatSearch').placeholder = dict[lang].hazmatPlaceholder;
-    document.getElementById('copyBtn').innerText = dict[lang].btnCopy;
     document.getElementById('disclaimerText').innerHTML = dict[lang].disclaimerMsg;
     
     if(appQuotes.length === 0) {
@@ -452,12 +446,17 @@ function processData() {
                 let lowerPart = cleanPart.toLowerCase();
                 if (!cleanPart || cleanPart.includes('$')) return;
 
+                // BULLETPROOF: Orden estricto de Específico a General
                 const accRules = [
                     { name: 'Delivery Appointment', keywords: ['appointment', 'appt', 'notify', 'notification'] },
-                    { name: 'Residential Delivery', keywords: ['residential', 'residence'] },
+                    { name: 'Residential Delivery', keywords: ['residential delivery', 'residence delivery'] },
+                    { name: 'Residential Pickup', keywords: ['residential pickup', 'residence pickup'] },
+                    { name: 'Residential', keywords: ['residential', 'residence'] },
+                    { name: 'Lift Gate Delivery', keywords: ['lift gate delivery', 'liftgate delivery', 'lift-gate delivery'] },
+                    { name: 'Lift Gate Pickup', keywords: ['lift gate pickup', 'liftgate pickup', 'lift-gate pickup'] },
                     { name: 'Lift Gate', keywords: ['lift gate', 'liftgate', 'lift-gate'] },
                     { name: 'Excessive Length', keywords: ['excessive length', 'overlength', '7ft', '8ft', '9ft', '10ft'] },
-                    { name: 'Inside Delivery', keywords: ['inside delivery', 'inside'] },
+                    { name: 'Inside Delivery', keywords: ['inside delivery', 'inside pickup', 'inside'] },
                     { name: 'Hazmat', keywords: ['hazardous', 'hazmat'] },
                     { name: 'Limited Access', keywords: ['limited access'] },
                     { name: 'Protect From Freeze', keywords: ['protect from freeze', 'freeze'] }
@@ -466,6 +465,7 @@ function processData() {
                 let matchedRule = accRules.find(r => r.keywords.some(kw => lowerPart.includes(kw)));
                 let finalName = matchedRule ? matchedRule.name : cleanPart;
 
+                // Evitar basura larga o tags duplicados
                 if (finalName.length < 40 && !q.accessorials.includes(finalName)) {
                     q.accessorials.push(finalName);
                 }
@@ -834,6 +834,7 @@ function renderTable() {
             let htmlNotes = row.warnings.map(w => `<div class="note-text" style="color:var(--warning)"><span class="note-icon">⚠️</span><span>${w}</span></div>`).join('') + row.infos.map(i => `<div class="note-text"><span class="note-icon">ℹ️</span><span>${i}</span></div>`).join('');
             let daysText = String(row.days).trim(); if(daysText !== '') { if (daysText === '1') daysText += ` ${t.day}`; else if (!isNaN(daysText) || daysText.match(/^\d+(\s*-\s*\d+)?$/)) daysText += ` ${t.days}`; }
 
+            // Solo mostramos iconos en la interfaz web
             const domain = getCarrierDomain(row.normalizedName); const iconHtml = domain ? `<img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" class="carrier-icon" onerror="this.style.display='none'">` : '';
             let toolsHtml = ''; const cInfo = carrierInfo[row.normalizedName.toLowerCase()];
             if(cInfo) {
@@ -1000,11 +1001,6 @@ function getReportHTML(isPdf = false) {
 
             let carrierExtra = includeRating ? `<br>${emailStars}` : '';
             if(row.quoteNumber !== '-') carrierExtra += `<br><span style="font-size:10px; color:${th.textMuted};">${t.refLabel} ${row.quoteNumber}</span>`;
-            
-            let normalizedName = normalizeCarrierName(row.carrier);
-            let domain = getCarrierDomain(normalizedName);
-            
-            let iconHtml = (!isPdf && domain) ? `<img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 6px; border-radius: 2px; margin-bottom: 2px;" alt="">` : '';
 
             let rateHtml = `$${row.cost.toFixed(2)}`;
             if (insVal > 0) {
@@ -1012,8 +1008,9 @@ function getReportHTML(isPdf = false) {
                 rateHtml += `<br><strong style="font-size: 13px; color: ${th.text};">${t.lblTotal}: $${(row.cost + insVal).toFixed(2)}</strong>`;
             }
 
+            // BULLETPROOF: Sin Iconos en Exportación
             let rowHTML = `<tr>
-                <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.text}; vertical-align: top;">${iconHtml}<strong style="vertical-align: middle;">${row.normalizedName}</strong>${rateTypeHtml}${carrierExtra}</td>
+                <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.text}; vertical-align: top;"><strong style="vertical-align: middle;">${row.normalizedName}</strong>${rateTypeHtml}${carrierExtra}</td>
                 <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.primary}; font-weight: bold; font-size: 14px; vertical-align: top;">${rateHtml}</td>`;
             
             if (hasInternalCols) {
