@@ -48,6 +48,22 @@ function toggleExperimental(isEnabled) {
     localStorage.setItem('ltl-experimental', isEnabled ? 'true' : 'false');
 }
 
+// Carrier Selection Logic (Bulletproof State Management)
+window.toggleCarrierSelection = function(quoteIdx, rateId, isChecked) {
+    let q = appQuotes[quoteIdx];
+    if(!q) return;
+    let rate = q.rawRates.find(r => r.id === rateId);
+    if(rate) rate.isSelected = isChecked;
+    renderTable();
+}
+
+window.toggleAllCarriers = function(quoteIdx, isChecked) {
+    let q = appQuotes[quoteIdx];
+    if(!q) return;
+    q.rawRates.forEach(r => r.isSelected = isChecked);
+    renderTable();
+}
+
 // Theme Logic
 function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
@@ -154,8 +170,13 @@ function setLang(lang) {
     document.getElementById('hazmatSearch').placeholder = dict[lang].hazmatPlaceholder;
     document.getElementById('disclaimerText').innerHTML = dict[lang].disclaimerMsg;
     
-    updateSummaryUI();
-    renderTable();
+    if(appQuotes.length === 0) {
+        document.getElementById('emptyText').innerText = dict[lang].emptyText;
+        document.getElementById('resultCount').innerText = "Results";
+    } else {
+        updateSummaryUI();
+        renderTable();
+    }
     searchHazmat();
 }
 
@@ -584,6 +605,7 @@ function processData() {
                 }
 
                 q.rawRates.push({
+                    id: Math.random().toString(36).substr(2, 9), // ID único para el checkbox
                     carrier: carrier,
                     cost: customerCost,
                     carrierCost: carrierCost,
@@ -593,7 +615,8 @@ function processData() {
                     liability: liability,
                     service: service,
                     days: days,
-                    rateType: currentRateType
+                    rateType: currentRateType,
+                    isSelected: true // Seleccionado por defecto
                 });
             } 
             else if (!line.includes('$') && q.rawRates.length > 0) {
@@ -738,7 +761,6 @@ function renderTable() {
         document.getElementById('resultCount').innerText = "Results";
         document.getElementById('internalColsFilters').style.display = 'none';
         
-        // BULLETPROOF: Disable export buttons when empty
         if(btnCopy) btnCopy.disabled = true;
         if(btnCsv) btnCsv.disabled = true;
         if(btnPdf) btnPdf.disabled = true;
@@ -746,7 +768,6 @@ function renderTable() {
         return;
     }
     
-    // BULLETPROOF: Enable export buttons when data exists
     if(btnCopy) btnCopy.disabled = false;
     if(btnCsv) btnCsv.disabled = false;
     if(btnPdf) btnPdf.disabled = false;
@@ -826,7 +847,7 @@ function renderTable() {
             return { ...quote, normalizedName, isAllowed, warnings, infos, statusClass, statusText, rating, numericDays, isBestPick: false };
         });
 
-        let allowedQuotes = q.processedRates.filter(r => r.isAllowed);
+        let allowedQuotes = q.processedRates.filter(r => r.isAllowed && r.isSelected !== false);
         if (allowedQuotes.length > 0) {
             allowedQuotes.sort((a,b) => a.cost - b.cost); allowedQuotes.forEach((r, i) => r.priceRank = i + 1);
             allowedQuotes.sort((a,b) => a.numericDays - b.numericDays); allowedQuotes.forEach((r, i) => r.daysRank = i + 1);
@@ -842,12 +863,20 @@ function renderTable() {
 
         const trGroup = document.createElement('tr');
         trGroup.classList.add('group-header-row');
+        
+        let allSelected = q.processedRates.every(r => r.isSelected !== false);
         let tableGroupTitle = isBatch ? `📦 ${q.id !== '-' ? q.id + ' | ' : ''}${q.label}: ${q.from || 'Origin'} ➡️ ${q.to || 'Dest'}` : `📦 ${q.id !== '-' ? q.id : 'N/A'} | Priority 1 Quote | ${q.from || 'Origin'} ➡️ ${q.to || 'Dest'}`;
-        trGroup.innerHTML = `<td colspan="8" style="font-weight: bold; color: var(--primary); font-size: 0.9rem; border-top: 2px solid var(--primary);">${tableGroupTitle}</td>`;
+        
+        trGroup.innerHTML = `<td colspan="8" style="font-weight: bold; color: var(--primary); font-size: 0.9rem; border-top: 2px solid var(--primary);">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" ${allSelected ? 'checked' : ''} onchange="toggleAllCarriers(${appQuotes.indexOf(q)}, this.checked)" title="Toggle all carriers in this quote" style="cursor:pointer;">
+                <span>${tableGroupTitle}</span>
+            </div>
+        </td>`;
         tbody.appendChild(trGroup);
 
         q.processedRates.forEach((row) => {
-            if (row.isAllowed) { visibleCount++; }
+            if (row.isAllowed && row.isSelected !== false) { visibleCount++; }
             
             let htmlNotes = row.warnings.map(w => `<div class="note-text" style="color:var(--warning)"><span class="note-icon">⚠️</span><span>${w}</span></div>`).join('') + row.infos.map(i => `<div class="note-text"><span class="note-icon">ℹ️</span><span>${i}</span></div>`).join('');
             let daysText = String(row.days).trim(); if(daysText !== '') { if (daysText === '1') daysText += ` ${t.day}`; else if (!isNaN(daysText) || daysText.match(/^\d+(\s*-\s*\d+)?$/)) daysText += ` ${t.days}`; }
@@ -899,9 +928,21 @@ function renderTable() {
 
             const tr = document.createElement('tr'); 
             if (!row.isAllowed) tr.classList.add('disabled-row');
+            if (row.isSelected === false) tr.classList.add('excluded-row');
             
             tr.innerHTML = `
-                <td><div class="carrier-name-wrapper"><div><div class="carrier-name">${row.normalizedName}</div>${rateTypeHtml}${bestPickHtml}<div>${starsHtml}</div>${refHtml}<div class="carrier-tools" style="margin-top: 4px;">${toolsHtml}</div></div>${iconHtml}</div></td>
+                <td>
+                    <div class="carrier-name-wrapper" style="align-items: center;">
+                        <input type="checkbox" ${row.isSelected !== false ? 'checked' : ''} onchange="toggleCarrierSelection(${appQuotes.indexOf(q)}, '${row.id}', this.checked)" style="margin-right: 8px; cursor: pointer;" title="Include in export">
+                        <div>
+                            <div class="carrier-name">${row.normalizedName}</div>${rateTypeHtml}${bestPickHtml}
+                            <div>${starsHtml}</div>
+                            ${refHtml}
+                            <div class="carrier-tools" style="margin-top: 4px;">${toolsHtml}</div>
+                        </div>
+                        ${iconHtml}
+                    </div>
+                </td>
                 <td class="price" style="${!row.isAllowed ? 'color:var(--text-muted);' : ''}">${priceHtml}</td>
                 ${showInternalCols && (exportCarrierCost || exportMargin) ? internalCostHtml : (showInternalCols ? '<td>-</td>' : '')}
                 <td>${liabilityHtml}</td>
@@ -944,7 +985,8 @@ function getReportHTML(isPdf = false) {
     let html = `<div id="exportWrapper" style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: ${th.text}; ${isPdf ? 'width: 100%;' : 'max-width: 800px;'} background-color: ${th.bg}; padding: 10px; box-sizing: border-box;">`;
 
     appQuotes.forEach((q, idx) => {
-        let allowedRates = q.processedRates.filter(r => r.isAllowed);
+        // BULLETPROOF: Filter out unselected rows from export
+        let allowedRates = q.processedRates.filter(r => r.isAllowed && r.isSelected !== false);
         if (allowedRates.length === 0) return;
         
         let insVal = q.insurance || 0;
@@ -954,7 +996,6 @@ function getReportHTML(isPdf = false) {
 
         html += `<div style="page-break-inside: avoid; margin-bottom: 24px;">`;
 
-        // BULLETPROOF ID FORMATTING: 📦 38446367 | Priority 1 Quote
         let reportGroupTitle = isBatch ? `📦 ${q.id !== '-' ? q.id + ' | ' : ''}${q.label}` : `📦 ${q.id !== '-' ? q.id : 'N/A'} | Priority 1 Quote`;
 
         html += `
@@ -1019,11 +1060,6 @@ function getReportHTML(isPdf = false) {
 
             let carrierExtra = includeRating ? `<br>${emailStars}` : '';
             if(row.quoteNumber !== '-') carrierExtra += `<br><span style="font-size:10px; color:${th.textMuted};">${t.refLabel} ${row.quoteNumber}</span>`;
-            
-            let normalizedName = normalizeCarrierName(row.carrier);
-            let domain = getCarrierDomain(normalizedName);
-            
-            let iconHtml = (!isPdf && domain) ? `<img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 6px; border-radius: 2px; margin-bottom: 2px;" alt="">` : '';
 
             let rateHtml = `$${row.cost.toFixed(2)}`;
             if (insVal > 0) {
@@ -1032,7 +1068,7 @@ function getReportHTML(isPdf = false) {
             }
 
             let rowHTML = `<tr>
-                <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.text}; vertical-align: top;">${iconHtml}<strong style="vertical-align: middle;">${row.normalizedName}</strong>${rateTypeHtml}${carrierExtra}</td>
+                <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.text}; vertical-align: top;"><strong style="vertical-align: middle;">${row.normalizedName}</strong>${rateTypeHtml}${carrierExtra}</td>
                 <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.primary}; font-weight: bold; font-size: 14px; vertical-align: top;">${rateHtml}</td>`;
             
             if (hasInternalCols) {
@@ -1182,7 +1218,9 @@ function exportToCsv() {
     
     appQuotes.forEach(q => {
         let insVal = q.insurance || 0;
-        let allowedRates = q.processedRates.filter(r => r.isAllowed);
+        
+        // BULLETPROOF: Filter out unselected rows from CSV
+        let allowedRates = q.processedRates.filter(r => r.isAllowed && r.isSelected !== false);
         
         allowedRates.forEach(row => {
             let liabClean = row.liability !== '-' && row.liability.includes('/') ? `${dict[currentLang].liabNew} ${row.liability.split('/')[0]} | ${dict[currentLang].liabUsed} ${row.liability.split('/')[1]}` : (row.liability === '-' ? '' : row.liability.replace(/\n/g, ' '));
