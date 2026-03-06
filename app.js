@@ -48,20 +48,40 @@ function toggleExperimental(isEnabled) {
     localStorage.setItem('ltl-experimental', isEnabled ? 'true' : 'false');
 }
 
-// Carrier Selection Logic (Bulletproof State Management)
-window.toggleCarrierSelection = function(quoteIdx, rateId, isChecked) {
+// Carrier Selection Logic (Bulletproof State Management without Table Re-render jump)
+window.toggleCarrierSelection = function(checkbox, quoteIdx, rateId) {
     let q = appQuotes[quoteIdx];
     if(!q) return;
-    let rate = q.rawRates.find(r => r.id === rateId);
-    if(rate) rate.isSelected = isChecked;
-    renderTable();
+    
+    // 1. Actualizar estado original
+    let rawRate = q.rawRates.find(r => r.id === rateId);
+    if(rawRate) rawRate.isSelected = checkbox.checked;
+    
+    // 2. Actualizar estado procesado para que las exportaciones lo detecten inmediatamente
+    if(q.processedRates) {
+        let procRate = q.processedRates.find(r => r.id === rateId);
+        if(procRate) procRate.isSelected = checkbox.checked;
+    }
+    
+    // 3. Mutación visual en el DOM (Usando closest tr para no romper el inline-block flex)
+    let tr = checkbox.closest('tr');
+    if (checkbox.checked) {
+        tr.classList.remove('excluded-row');
+    } else {
+        tr.classList.add('excluded-row');
+    }
 }
 
-window.toggleAllCarriers = function(quoteIdx, isChecked) {
+window.toggleAllCarriers = function(checkbox, quoteIdx) {
     let q = appQuotes[quoteIdx];
     if(!q) return;
-    q.rawRates.forEach(r => r.isSelected = isChecked);
-    renderTable();
+    
+    q.rawRates.forEach(r => r.isSelected = checkbox.checked);
+    if (q.processedRates) {
+        q.processedRates.forEach(r => r.isSelected = checkbox.checked);
+    }
+    
+    renderTable(); 
 }
 
 // Theme Logic
@@ -93,12 +113,12 @@ const dict = {
         day: "Día", days: "Días", rateLTL: "LTL", rateVol: "Volumen",
         warnLiftgate: "Precaución Liftgate", warnCubic: "Regla Capacidad/Longitud", placeholder: "Pega aquí todo el texto de tu cotización (Quote Id, From, To, Items, Rates)...",
         copyBtn: "📋 Copiar para Correo", exportBtn: "📁 Exportar CSV", exportPdfBtn: "📄 PDF", lblIncludeNotes: "Incluir Notas", 
-        lblIncludeRating: "Incluir Calificación", msgCopied: "¡Copiado al Portapapeles!",
+        msgCopied: "¡Copiado al Portapapeles!",
         shipOptions: "Opciones de Envío", noResults: "Sin resultados exactos.", refLabel: "Quote id:",
         liabNew: "NEW:", liabUsed: "USED:",
         disclaimerMsg: "⚠️ <strong>Aviso Importante:</strong> Esta herramienta proporciona recomendaciones basadas en reglas predefinidas. Siempre debe verificar y hacer un 'double check' de la información y requerimientos según lo solicitado por el cliente y las normativas actualizadas de cada carrier.",
         clearBtn: "Limpiar", clearAllBtn: "Limpiar Todo", autoCopy: "Auto-Parser al Pegar", lblBatchMode: "Modo Batch",
-        optSortCheap: "Ordenar: Más Barato", optSortFast: "Ordenar: Más Rápido", optSortRate: "Ordenar: Mejor Calificación", bestPick: "Mejor Opción",
+        optSortCheap: "Ordenar: Más Barato", optSortFast: "Ordenar: Más Rápido",
         lblEmailTheme: "Tema Exportación:",
         toastMsg: "¡Copiado con Éxito!",
         volDisclaimer: "<strong>Tarifas LTL vs Volumen:</strong> Las tarifas LTL son la estructura estándar para envíos pequeños. En contraste, las tarifas de Volumen se basan en el espacio lineal y peso para cargas que exceden dimensiones estándar. Las tarifas de volumen ofrecen grandes ahorros pero pueden tener menor disponibilidad o tiempos de tránsito variables.",
@@ -128,13 +148,13 @@ const dict = {
         day: "Day", days: "Days", rateLTL: "LTL", rateVol: "Volume",
         warnLiftgate: "Liftgate Warning", warnCubic: "Cubic/Length Rule", placeholder: "Paste your full quote text here (Quote Id, From, To, Items, Rates)...",
         copyBtn: "📋 Copy for Email", exportBtn: "📁 CSV", exportPdfBtn: "📄 PDF", lblIncludeNotes: "Include Notes", 
-        lblIncludeRating: "Include Rating", msgCopied: "Table Copied!",
+        msgCopied: "Table Copied!",
         shipOptions: "Shipping Options", noResults: "No exact matches found.", refLabel: "Quote id:",
         liabNew: "NEW:", liabUsed: "USED:",
         resWarningMsg: "<strong>Warning:</strong> Residential delivery detected, but Lift Gate or Delivery Appointment is missing from accessorials. Please verify requirements with the client.",
         disclaimerMsg: "⚠️ <strong>Important Notice:</strong> This tool provides recommendations based on predefined rules. Always double-check information and requirements based on client requests and updated carrier tariffs.",
         clearBtn: "Clear", clearAllBtn: "Clear All", autoCopy: "Auto-Parse on Paste", lblBatchMode: "Batch Mode",
-        optSortCheap: "Sort: Cheapest", optSortFast: "Sort: Fastest", optSortRate: "Sort: Best Rating", bestPick: "Best Pick",
+        optSortCheap: "Sort: Cheapest", optSortFast: "Sort: Fastest", 
         lblEmailTheme: "Export Theme:",
         toastMsg: "Copied successfully!",
         volDisclaimer: "<strong>LTL vs Volume Rates:</strong> The LTL rate is designed for smaller shipments that don't fill a truck's capacity. In contrast, volume rates are based on linear feet and weight for larger shipments. Volume rates offer potential savings but may have less availability and variable transit times.",
@@ -159,7 +179,7 @@ function setLang(lang) {
     document.getElementById('btn-es').classList.toggle('active', lang === 'es');
     document.getElementById('btn-en').classList.toggle('active', lang === 'en');
     
-    const keys = ['mainTitle', 'step1Title', 'analyzeBtn', 'step2Title', 'destLabel', 'optStd', 'prodLabel', 'optNone', 'optTob', 'optAlc', 'optVap', 'optFire', 'insLabel', 'liftLabel', 'cubicLabel', 'lblIncludeNotes', 'lblIncludeRating', 'clearBtn', 'clearAllBtn', 'lblBatchMode', 'optSortCheap', 'optSortFast', 'optSortRate', 'lblEmailTheme', 'appThmDef', 'appThmMono', 'appThmViv', 'appThmFem', 'appThmNav', 'appThmCorp', 'appThmFor', 'appThmEar', 'appThmMid', 'appThmSla', 'thmDef', 'thmMono', 'thmViv', 'thmFem', 'thmNav', 'thmCorp', 'thmFor', 'thmEar', 'thmMid', 'thmSla', 'toastMsg', 'btn-tab-analyzer', 'btn-tab-extras', 'extHazTitle', 'extHazDesc', 'exportPdfBtn', 'lblCarrierCost', 'lblMargin', 'exportBtn', 'copyBtn'];
+    const keys = ['mainTitle', 'step1Title', 'analyzeBtn', 'step2Title', 'destLabel', 'optStd', 'prodLabel', 'optNone', 'optTob', 'optAlc', 'optVap', 'optFire', 'insLabel', 'liftLabel', 'cubicLabel', 'lblIncludeNotes', 'clearBtn', 'clearAllBtn', 'lblBatchMode', 'optSortCheap', 'optSortFast', 'lblEmailTheme', 'appThmDef', 'appThmMono', 'appThmViv', 'appThmFem', 'appThmNav', 'appThmCorp', 'appThmFor', 'appThmEar', 'appThmMid', 'appThmSla', 'thmDef', 'thmMono', 'thmViv', 'thmFem', 'thmNav', 'thmCorp', 'thmFor', 'thmEar', 'thmMid', 'thmSla', 'toastMsg', 'btn-tab-analyzer', 'btn-tab-extras', 'extHazTitle', 'extHazDesc', 'exportPdfBtn', 'lblCarrierCost', 'lblMargin', 'exportBtn', 'copyBtn'];
     keys.forEach(k => {
         const el = document.getElementById(k);
         if (el) el.innerText = dict[lang][k];
@@ -179,16 +199,6 @@ function setLang(lang) {
     }
     searchHazmat();
 }
-
-const carrierInfo = { 
-    "abf": { rating: 4.5 }, "aaa cooper": { rating: 3.9 }, "averitt express": { rating: 4.5 }, "estes": { rating: 4.2 }, "old dominion": { rating: 4.9 }, 
-    "r&l carriers": { rating: 3.6 }, "saia": { rating: 4.1 }, "xpo": { rating: 3.8 }, "tforce": { rating: 3.3 }, "dayton freight": { rating: 4.8 }, 
-    "a. duie pyle": { rating: 4.7 }, "central transport": { rating: 2.2 }, "fedex": { rating: 4.0 }, "fedex economy": { rating: 4.0 }, "fedex priority": { rating: 4.5 }, 
-    "custom companies": { rating: 4.0 }, "daylight": { rating: 4.3 }, "forward air": { rating: 3.9 }, "frontline": { rating: 3.8 }, "roadrunner": { rating: 3.2 }, 
-    "pitt ohio": { rating: 4.8 }, "ward": { rating: 4.1 }, "southeastern freight": { rating: 4.7 }, "dohrn transfer": { rating: 4.1 }, "magnum": { rating: 4.2 }, 
-    "tax airfreight": { rating: 4.0 }, "double d express": { rating: 4.0 }, "n&m transfer": { rating: 4.5 }, "performance freight": {rating: 4.0}, 
-    "go2 logistics": { rating: 3.8 }, "a & b freight line": { rating: 4.0 }
-};
 
 const stateTimezones = {
     "alabama": "America/Chicago", "alaska": "America/Anchorage", "arizona": "America/Phoenix", "arkansas": "America/Chicago", 
@@ -264,7 +274,6 @@ function initApp() {
         const savedAppTheme = localStorage.getItem('ltl-app-theme');
         if (savedAppTheme) setAppTheme(savedAppTheme);
         
-        // Initialize Master Toggle from memory
         let expEnabled = localStorage.getItem('ltl-experimental') === 'true';
         document.getElementById('expToggle').checked = expEnabled;
         toggleExperimental(expEnabled);
@@ -273,6 +282,9 @@ function initApp() {
 
     setLang('en');
     startLiveClocks();
+    
+    // Ensure buttons are correctly disabled on start
+    renderTable();
 
     document.getElementById('inputData').addEventListener('paste', () => {
         if(document.getElementById('autoCopyPaste').checked) {
@@ -284,14 +296,83 @@ function initApp() {
     });
 }
 
+// BULLETPROOF: Database of precise carrier domains for logo fetching
+function getCarrierDomain(normalizedName) {
+    const domains = { 
+        "aaa cooper": "aaacooper.com", 
+        "abf": "arcb.com", 
+        "averitt express": "averitt.com", 
+        "southeastern freight": "sefl.com", 
+        "old dominion": "odfl.com", 
+        "xpo": "xpo.com", 
+        "tforce": "tforcefreight.com", 
+        "fedex": "fedex.com", 
+        "fedex priority": "fedex.com", 
+        "fedex economy": "fedex.com", 
+        "ward": "wardtlc.com", 
+        "saia": "saia.com", 
+        "r&l carriers": "rlcarriers.com", 
+        "estes": "estes-express.com", 
+        "central transport": "centraltransport.com", 
+        "dayton freight": "daytonfreight.com", 
+        "a. duie pyle": "aduiepyle.com", 
+        "pitt ohio": "pittohio.com", 
+        "custom companies": "customco.com", 
+        "frontline": "frontlinefreightinc.com", 
+        "daylight": "dylt.com", 
+        "forward air": "forwardair.com", 
+        "roadrunner": "freight.rrts.com", 
+        "unis transportation": "unisco.com", 
+        "clear lane": "clearlanefreightsystems.com", 
+        "n&m transfer": "nmtransfer.com", 
+        "cross country": "ccfsi.com", 
+        "dohrn transfer": "dohrn.com", 
+        "magnum": "magnumlog.com", 
+        "a & b freight line": "abfreight.com", 
+        "double d express": "doubledexpress.com", 
+        "fort transportation": "forttransport.com", 
+        "performance freight": "pfsfreight.com", 
+        "rude transportation": "rudefreight.com", 
+        "southwestern motor transport": "smtl.com", 
+        "tax airfreight": "taxair.com", 
+        "go2 logistics": "go2logistics.com",
+        "oak harbor freight lines": "oakh.com",
+        "dugan": "dugantruckline.com",
+        "total transportation": "totaltransportation.com"
+    };
+    return domains[normalizedName.toLowerCase()] || null;
+}
+
 const rules = {
     amazon: { allowed: ["AAA Cooper", "ABF", "Central Transport", "Estes", "Frontline", "Old Dominion", "Saia", "TForce", "Unis", "XPO"], notes: { "Estes": "Verify local terminal. Some do not deliver to Amazon.", "Frontline": "Applies $200 extra charge for limited access.", "Saia": "Applies $175 extra charge for limited access." } },
     walmart: { allowed: ["A. Duie Pyle", "AAA Cooper", "ABF", "Averitt Express", "Central Transport", "Custom Companies", "Daylight", "Estes", "FedEx", "Forward Air", "N&M Transfer", "Old Dominion", "R&L Carriers", "Roadrunner", "Saia", "Southeastern Freight", "TForce", "Unis", "Ward", "XPO"], notes: { "AAA Cooper": "Email walmartcsr@aaacooper.com.", "Daylight": "Mandatory to confirm with delivery terminal.", "R&L Carriers": "Mandatory to confirm with delivery terminal.", "Saia": "Mandatory to confirm with delivery terminal.", "Southeastern Freight": "Mandatory to confirm with delivery terminal." } },
     tobacco: { banned: ["Central Transport"], restricted: ["UPS"], notes: { "UPS": "Requires written authorization. No Cargo Claims Liability.", "Dayton Freight": "Max coverage $5,000. $1.00/lb.", "AAA Cooper": "Max coverage $50,000. $2.00/lb.", "Estes": "Must be palletized & secured. Max liability $2.00/lb.", "Saia": "Will haul tobacco, but NO vape products." } },
     alcohol: { notes: { "ABF": "Add $58.05 for AL, CA, FL, GA, IL, KY, LA, MD, MS, MT, NV, NJ, OK, PA, TX.", "Estes": "No 00110-00119 zips. Extra fees: $45 NJ, $15.75 AL/CA/FL/etc.", "Dayton Freight": "NO alcohol in PA, WV or via partners.", "R&L Carriers": "NO alcohol CA, IN, NH, NY, WV. Beer only in TX. +$39 NJ.", "Saia": "NO NYC/Long Island. Yes PR. No hazmat.", "Southeastern Freight": "No intrastate (TX to TX). No KY.", "FedEx": "Shipper/Consignee must have license." } },
-    vape: { allowed: ["Aberdeen Express", "Accurate Cargo", "Clear Lane", "Cross Country", "Custom Companies", "Dayton Freight", "Double D Express", "Dugan Truck Line", "Estes", "NM Transfer", "Numark", "Old Dominion", "Pitt Ohio", "Saia", "Tax Airfreight"], banned: ["R&L Carriers", "Forward Air", "AAA Cooper", "Total Transportation", "Southwest Motor", "XPO"], notes: { "Clear Lane": "ONLY if empty and UN-charged.", "Estes": "No residential/limited access. Hardware only, no e-juice.", "Cross Country": "Requires Hazmat if batteries included." } },
+    vape: { allowed: ["Aberdeen Express", "Accurate Cargo", "Clear Lane", "Cross Country", "Custom Companies", "Dayton Freight", "Double D Express", "Dugan", "Estes", "NM Transfer", "Numark", "Old Dominion", "Pitt Ohio", "Saia", "Tax Airfreight"], banned: ["R&L Carriers", "Forward Air", "AAA Cooper", "Total Transportation", "Southwest Motor", "XPO"], notes: { "Clear Lane": "ONLY if empty and UN-charged.", "Estes": "No residential/limited access. Hardware only, no e-juice.", "Cross Country": "Requires Hazmat if batteries included." } },
     firearms: { allowed: ["A. Duie Pyle", "AAA Cooper", "ABF", "FedEx", "Saia"], notes: { "A. Duie Pyle": "Firearms: Only specific cases (coordinate with rep). Ammo: Class 1.4 usually accepted.", "ABF": "Firearms: Licensed importers/dealers only. Ammo: Class 1.4 usually accepted.", "FedEx": "Firearms: FFL holders/Gov only. Ammo: Class 1.4 usually accepted.", "AAA Cooper": "Ammo: Class 1.4 usually accepted. Others not accepted.", "Saia": "Ammo: Class 1.4 usually accepted. Others not accepted." } },
-    liftgate: { limits: { "AAA Cooper": { w: 2000, l: 72, note: "Max 2000 lbs. (72\" L max)" }, "ABF": { w: 2000, note: "Max 2000 lbs." }, "Averitt Express": { w: 3000, note: "Max 3000 lbs. (High capacity)" }, "Central Transport": { w: 1500, note: "Max 1500 lbs." }, "Dayton Freight": { w: 2000, l: 80, wid: 60, note: "Max 2000 lbs. (60x80 max)" }, "Estes": { w: 1500, l: 60, wid: 72, h: 64, note: "Max 1500-1800 lbs. (60x72x64 max per Tariff)" }, "Old Dominion": { w: 1500, note: "Max 1500 lbs." }, "R&L Carriers": { w: 2000, warnL: 60, note: "Max 2000 lbs. (Double charge if >60\" L)" }, "Roadrunner": { w: 2000, note: "Max 2000 lbs." }, "Saia": { w: 2000, note: "Max 2000 lbs." }, "TForce": { w: 2500, note: "Max 2500 lbs." }, "XPO": { w: 2500, note: "Max 2500 lbs." }, "Custom Companies": { w: 1500, note: "Max 1500 lbs. Call to confirm." } } },
+    liftgate: { 
+        limits: { 
+            "AAA Cooper": { l: 72, w: 2000, note: "Max 2000 lbs, 72\" L" },
+            "ABF": { l: 80, wid: 60, w: 3000, note: "Max 3000 lbs (80x60)" },
+            "Averitt Express": { l: 80, wid: 60, w: 3000, note: "Max 3000 lbs (80x60)" },
+            "Central Transport": { l: 60, wid: 60, h: 80, w: 2500, note: "Max 2500 lbs (60x60x80). > limits incur $75 fee." },
+            "Custom Companies": { l: 68, wid: 40, h: 80, w: 1500, note: "Max 1500 lbs (68x40x80). Call to confirm overages." },
+            "Daylight": { l: 60, wid: 48, w: 3200, note: "Max 3200 lbs (60x48 for 53ft)" },
+            "Dayton Freight": { l: 80, wid: 60, w: 2000, note: "Max 2000 lbs (80x60)" },
+            "Dohrn Transfer": { l: 80, wid: 60, w: 2500, note: "Max 2500 lbs (80x60)" },
+            "Dugan": { l: 48, wid: 48, h: 72, w: 2500, note: "Max 2500 lbs (48x48x72)" },
+            "Estes": { l: 84, wid: 48, h: 72, w: 2000, note: "Max 2000 lbs (84x48x72)" },
+            "Forward Air": { l: 72, wid: 72, w: 2500, note: "Max 2500 lbs (72x72). Tall freight may need Two-Man." },
+            "Frontline": { l: 50, wid: 40, h: 86, w: 1300, note: "Max 1300 lbs (50x40x86). Weight limit varies per terminal." },
+            "Old Dominion": { l: 84, wid: 84, h: 52, w: 3300, note: "Max 3300 lbs (84x84x52). Must not be top heavy." },
+            "R&L Carriers": { l: 60, wid: 48, w: 2000, warnL: 60, note: "Max 2000 lbs (60x48). Skids > 60\" L charge doubled. Confirm with terminal." },
+            "Roadrunner": { l: 60, wid: 80, h: 90, w: 2000, note: "Max 2000 lbs (60\"L x 80\"W x 90\"H). > limits triggers $50 fee + storage!" },
+            "Saia": { l: 79, wid: 60, w: 5000, note: "Max 5000 lbs (79x60)" },
+            "Southeastern Freight": { l: 60, wid: 48, h: 72, w: 2500, resiW: 500, note: "Max 2500 lbs Comm / 500 lbs Resi (60x48x72)" },
+            "Total Transportation": { l: 60, wid: 60, h: 85, w: 2500, note: "Max 2500 lbs (60x60x85)" },
+            "Ward": { l: 60, wid: 60, w: 2000, note: "Max 2000 lbs (60x60)" }
+        } 
+    },
     cubic: { defaultNote: "Please check Cubic Capacity / Overlength rules tariff with this carrier.", notes: { "A. Duie Pyle": "Overlength > 8' o 6'x6'. LF > 8'. Cubic > 750 cu' (< 6 PCF).", "AAA Cooper": "Overlength > 8'. Cubic > 350 cu' (< 3 PCF) o 750 cu' (< 6 PCF).", "ABF": "Overlength > 8' (96\").", "Estes": "Overlength > 8' (96\"). Cubic > 750 cu' (< 6 PCF).", "Old Dominion": "Overlength > 8'. Capacity Load Item 390: > 20' linear o > 20,000 lbs.", "Saia": "Overlength > 8'. Cubic > 750 cu' (< 6 PCF).", "TForce": "Overlength > 8'. LF > 20'. Cubic > 750 cu' (< 6 PCF).", "XPO": "Overlength > 8'. Item 233: Cubic > 350 cu' (< 3 PCF) o 750 cu' (< 6 PCF)." } }
 };
 
@@ -343,26 +424,16 @@ function clearAllData() {
 
 function clearAllDataInternal() {
     document.getElementById('quoteSummaryContainer').innerHTML = '';
-    document.querySelector('#quotesTable tbody').innerHTML = `<tr><td colspan="8"><div class="empty-state" id="emptyText">${dict[currentLang].emptyText}</div></td></tr>`;
-    document.getElementById('resultCount').innerText = "Results";
-    document.getElementById('internalColsFilters').style.display = 'none';
-    document.getElementById('exportCarrierCost').checked = false;
-    document.getElementById('exportMargin').checked = false;
     appQuotes = [];
     lastParsedText = "";
-    
-    // BULLETPROOF: Desactivar botones de exportación inmediatamente al limpiar
-    const btnCopy = document.getElementById('copyBtn');
-    const btnCsv = document.getElementById('exportBtn');
-    const btnPdf = document.getElementById('exportPdfBtn');
-    if (btnCopy) btnCopy.disabled = true;
-    if (btnCsv) btnCsv.disabled = true;
-    if (btnPdf) btnPdf.disabled = true;
+    // Re-rendering the table will inherently clear it and disable the buttons
+    renderTable();
 }
 
 function normalizeCarrierName(name) {
     let n = name.toLowerCase().trim();
     
+    // Priority checks for compound names (Longer names MUST go first)
     if (n.includes('fedex')) {
         if (n.includes('economy')) return 'FedEx Economy';
         if (n.includes('priority')) return 'FedEx Priority';
@@ -389,9 +460,12 @@ function normalizeCarrierName(name) {
     if (n.includes('tax air') || /\btaxa\b/.test(n)) return 'Tax Airfreight'; 
     if (n.includes('unis') || /\butpa\b/.test(n)) return 'UNIS Transportation';
     if (n.includes('go2')) return 'Go2 Logistics';
-    if (n.includes('aaa cooper')) return 'AAA Cooper'; 
+    if (n.includes('aaa cooper') || n.includes('aaa/mme')) return 'AAA Cooper'; 
     if (n.includes('averitt')) return 'Averitt Express';
     if (n.includes('estes')) return 'Estes'; 
+    if (n.includes('oak harbor') || /\boakh\b/.test(n)) return 'Oak Harbor Freight Lines';
+    if (n.includes('total transport')) return 'Total Transportation';
+    if (n.includes('dugan')) return 'Dugan';
 
     if (/\bward\b/.test(n)) return 'Ward'; 
     if (/\babf\b/.test(n)) return 'ABF'; 
@@ -413,9 +487,13 @@ function processData() {
     if (isBatch && rawText === lastParsedText) return; 
     lastParsedText = rawText;
 
-    rawText = rawText.replace(/⠀/g, '\t'); 
+    // PRE-PROCESSING: Unsquash and format text
+    rawText = rawText.replace(/⠀/g, '\t'); // Convert braille spaces to tabs
     rawText = rawText.replace(/Quote Id:\s*([A-Za-z0-9_-]+)(From:)/gi, 'Quote Id: $1\n$2');
+
+    // Regex para separar precios pegados a Quote IDs ($355.381237516747) -> ($355.38 \t 1237516747)
     rawText = rawText.replace(/(\$\d+(?:,\d+)?\.\d{2})([A-Za-z0-9_-]+)/g, '$1 \t $2');
+
     rawText = rawText.replace(/LTL Rates:/gi, '\nLTL Rates:\n').replace(/Volume Rates:/gi, '\nVolume Rates:\n');
     const lines = rawText.split('\n').map(l => l.trim()).filter(l => l);
     
@@ -438,6 +516,7 @@ function processData() {
     let currentRateType = 'LTL';
     let mode = 'header';
     
+    // Quick scan for format type
     let isAdvancedFormat = lines.some(l => l.toLowerCase().includes('carrier cost') || l.toLowerCase().includes('margin'));
     if (isAdvancedFormat) q.hasInternalCols = true;
 
@@ -445,11 +524,13 @@ function processData() {
         let line = lines[i];
         let lowerLine = line.toLowerCase();
 
+        // Detect section headers rigidly
         if (lowerLine === 'accessorials' || lowerLine === 'accessorials:') { mode = 'accessorials'; continue; }
         if (lowerLine === 'items' || lowerLine.startsWith('items / pallets') || lowerLine === 'items:') { mode = 'items'; continue; }
         if (lowerLine.includes('ltl rates') || lowerLine.includes('ltl rates:')) { mode = 'rates'; currentRateType = 'LTL'; continue; }
         if (lowerLine.includes('volume rates') || lowerLine.includes('volume rates:')) { mode = 'rates'; currentRateType = 'Volume'; continue; }
 
+        // PARSE HEADER
         if (mode === 'header') {
             if (lowerLine.startsWith('quote id:') || lowerLine.startsWith('quote:')) {
                 let val = line.replace(/quote id:|quote:/i, '').trim();
@@ -464,6 +545,7 @@ function processData() {
                 q.to = val ? val : (lines[i+1] ? lines[i+1].trim() : '-');
             }
         }
+        // PARSE ACCESSORIALS
         else if (mode === 'accessorials') {
             let parts = line.includes(',') ? line.split(',') : [line];
             parts.forEach(part => {
@@ -471,6 +553,7 @@ function processData() {
                 let lowerPart = cleanPart.toLowerCase();
                 if (!cleanPart || cleanPart.includes('$')) return;
 
+                // BULLETPROOF: Orden estricto de Específico a General
                 const accRules = [
                     { name: 'Delivery Appointment', keywords: ['appointment', 'appt', 'notify', 'notification'] },
                     { name: 'Residential Delivery', keywords: ['residential delivery', 'residence delivery'] },
@@ -489,11 +572,13 @@ function processData() {
                 let matchedRule = accRules.find(r => r.keywords.some(kw => lowerPart.includes(kw)));
                 let finalName = matchedRule ? matchedRule.name : cleanPart;
 
+                // Evitar basura larga o tags duplicados
                 if (finalName.length < 40 && !q.accessorials.includes(finalName)) {
                     q.accessorials.push(finalName);
                 }
             });
         }
+        // PARSE ITEMS (Bulletproof duplicate allowance)
         else if (mode === 'items') {
             if (handlingUnits.some(unit => lowerLine.includes(unit)) && /\d/.test(line)) {
                 let isSubItem = line.startsWith('-');
@@ -520,20 +605,23 @@ function processData() {
                         if (h > q.maxDims.height) q.maxDims.height = h;
                     }
                 }
-                if (!q.items.some(existing => existing.text === itemObj.text && existing.isSub === itemObj.isSub)) {
-                    q.items.push(itemObj);
-                }
+                // Removing aggressive deduplication. Push all valid lines.
+                q.items.push(itemObj);
             }
         }
+        // PARSE RATES (Aggressive Regex Engine)
         else if (mode === 'rates') {
             if (/carrier\s*service\s*level/i.test(lowerLine) || /customer\s*cost/i.test(lowerLine) || /carrier\s*quote/i.test(lowerLine) || (lowerLine.includes('carrier') && lowerLine.includes('rate'))) {
                 continue; 
             }
 
             if (line.includes('$')) {
+                
+                // UNSQUASH: Separate glued Liability numbers from Days (e.g. "USED: 17.31 Day" -> "USED: 17.3 1 Day")
                 line = line.replace(/(\d+\.\d{1,2})(\d)\s*(Day|Days)/i, '$1 $2 $3');
                 line = line.replace(/(\d{3,})(\d)\s*(Day|Days)/i, '$1 $2 $3');
 
+                // 1. EXTRACT LIABILITY & REMOVE FROM STRING
                 let liability = '-';
                 let newLiabMatch = line.match(/NEW:\s*\$?([0-9,.]+)/i);
                 let usedLiabMatch = line.match(/USED:\s*\$?([0-9,.]+)/i);
@@ -552,14 +640,17 @@ function processData() {
                     if (liabNumbers.length > 0) liability = liabNumbers.join('/');
                 }
 
+                // 2. EXTRACT CARRIER NAME
                 let carrier = "Unknown";
                 let firstDollarIdx = line.indexOf('$');
                 if (firstDollarIdx !== -1) {
                     let prefix = line.substring(0, firstDollarIdx).trim();
                     prefix = prefix.replace(/[\t]+/g, ' ');
+                    
                     carrier = prefix.replace(/\s*(LTL|Volume)$/i, '').trim();
                 }
 
+                // 3. EXTRACT COSTS
                 let dollarPrices = [...line.matchAll(/\$([0-9,.]+)/g)].map(m => parseFloat(m[1].replace(/,/g, '')));
                 let customerCost = dollarPrices[0] || 0;
                 let carrierCost = '';
@@ -567,10 +658,12 @@ function processData() {
                     carrierCost = dollarPrices[1];
                 }
 
+                // 4. EXTRACT SERVICE
                 let service = "Standard";
                 let serviceMatch = line.match(/(Standard Rate|Economy|Priority|LTL Standard Transit|Market Rate|Standard Service|Standard|Interline|TLX|TLS|EXCL|Guaranteed)/i);
                 if (serviceMatch) service = serviceMatch[1];
 
+                // 5. EXTRACT DAYS
                 let days = "N/A";
                 let daysMatch = line.match(/(\d+)\s*Days?/i);
                 if (daysMatch) {
@@ -584,12 +677,14 @@ function processData() {
                     }
                 }
 
+                // 6. EXTRACT EXPIRATION & MARGIN
                 let expMatch = line.match(/(\d{1,2}\/\d{1,2}\/\d{2,4})/);
                 let expiration = expMatch ? expMatch[1] : '-';
 
                 let marginMatch = line.match(/(\d+(?:\.\d+)?)%/);
                 let margin = marginMatch ? marginMatch[1] + '%' : '-';
 
+                // 7. EXTRACT QUOTE NUMBER (Bulletproof: Must follow the price and contain a digit)
                 let quoteNum = '-';
                 let tokens = line.split(/[\s\t]+/);
                 let rateFound = false;
@@ -598,6 +693,7 @@ function processData() {
                         if (token.includes('$')) rateFound = true;
                         continue;
                     }
+                    // A quote ID is typically 6+ chars, alphanumeric, MUST contain at least one digit, and cannot be a standard service word
                     if (token.length >= 6 && /^[A-Z0-9_-]+$/i.test(token) && /\d/.test(token) && !/^(Standard|Economy|Priority|Market|Interline|Guaranteed)$/i.test(token)) {
                         quoteNum = token;
                         break;
@@ -686,17 +782,9 @@ function updateSummaryUI() {
         let tz = getTimezoneForLocation(q.from);
         let clockHtml = tz ? `<span class="live-clock" data-tz="${tz}">--:--</span>` : '';
 
-        let headerBlock = '';
-        if (isBatch) {
-            headerBlock = `<div class="summary-item summary-full-width" style="margin-top: 0; padding-top: 0; border-top: none;">
-                <span class="summary-label" style="font-size: 0.85rem; color: var(--primary);">${q.label} ${q.id !== '-' ? `(${t.refLabel.replace(':', '')} ${q.id})` : ''}</span>
-            </div>`;
-        } else {
-            headerBlock = `<div class="summary-item" style="grid-column: 1 / -1; margin-bottom: 8px;">
-                <span class="summary-label" style="font-size: 0.85rem; color: var(--primary);">Priority 1 Quote ID</span>
-                <span class="summary-value" style="font-size: 1.3rem; color: var(--primary);">${q.id !== '-' ? q.id : '-'}</span>
-            </div>`;
-        }
+        let headerBlock = `<div class="summary-item summary-full-width" style="margin-top: 0; padding-top: 0; border-top: none; margin-bottom: 8px;">
+            <span class="summary-label" style="font-size: 0.85rem; color: var(--primary);">📦 ${q.id !== '-' ? q.id + ' | ' : ''}${isBatch ? q.label : 'Priority 1 Quote'}</span>
+        </div>`;
 
         html += `
         <div class="quote-summary" style="display: block; margin-bottom: 16px;">
@@ -725,27 +813,6 @@ function updateSummaryUI() {
     });
     
     container.innerHTML = html;
-}
-
-function getCarrierDomain(normalizedName) {
-    const domains = { "aaa cooper": "aaacooper.com", "abf": "arcb.com", "averitt express": "averitt.com", "southeastern freight": "sefl.com", "old dominion": "odfl.com", "xpo": "xpo.com", "tforce": "tforcefreight.com", "fedex": "fedex.com", "fedex priority": "fedex.com", "fedex economy": "fedex.com", "ward": "wardtlc.com", "saia": "saia.com", "r&l carriers": "rlcarriers.com", "estes": "estes-express.com", "central transport": "centraltransport.com", "dayton freight": "daytonfreight.com", "a. duie pyle": "aduiepyle.com", "pitt ohio": "pittohio.com", "custom companies": "customco.com", "frontline": "stgusa.com", "daylight": "dylt.com", "forward air": "forwardair.com", "roadrunner": "rrts.com", "unis transportation": "unisco.com", "clear lane": "clearlanefreightsystems.com", "n&m transfer": "nmtransfer.com", "cross country": "ccfsi.com", "dohrn transfer": "dohrn.com", "magnum": "magnumlog.com", "a & b freight line": "abfreight.com", "double d express": "doubledexpress.com", "fort transportation": "forttransport.com", "performance freight": "performancefreight.com", "rude transportation": "rudetransportation.com", "southwestern motor transport": "smtl.com", "tax airfreight": "taxair.com", "go2 logistics": "go2logistics.com" };
-    return domains[normalizedName.toLowerCase()] || null;
-}
-
-function getCarrierRating(name) {
-    const info = carrierInfo[name.toLowerCase()];
-    return info && info.rating ? info.rating : 3.5; 
-}
-
-function generateStarsHTML(rating) {
-    const percent = (rating / 5) * 100;
-    return `<div class="stars-container" title="${rating.toFixed(1)}/5">★★★★★<div class="stars-filled" style="width: ${percent}%;">★★★★★</div></div><span class="rating-number">${rating.toFixed(1)}</span>`;
-}
-
-function getEmailStars(rating) {
-    if(rating >= 4.8) return '★★★★★'; if(rating >= 3.8) return '★★★★☆';
-    if(rating >= 2.8) return '★★★☆☆'; if(rating >= 1.8) return '★★☆☆☆';
-    return '★☆☆☆☆';
 }
 
 function renderTable() {
@@ -809,8 +876,8 @@ function renderTable() {
         const checkCubic = q.checkCubic;
         let insVal = q.insurance;
 
-        let needsLiftgate = checkLiftgate;
-        if (q.accessorials && q.accessorials.some(a => a.toLowerCase().includes('lift'))) needsLiftgate = true;
+        let isRes = q.accessorials.some(a => a.toLowerCase().includes('residential') || a.toLowerCase().includes('residence'));
+        let needsLiftgate = checkLiftgate || q.accessorials.some(a => a.toLowerCase().includes('lift'));
 
         q.processedRates = q.rawRates.map((quote) => {
             const normalizedName = normalizeCarrierName(quote.carrier); 
@@ -824,52 +891,57 @@ function renderTable() {
             else if (prodType === 'alcohol') { if (rules.alcohol.notes[normalizedName]) warnings.push(`Alcohol: ${rules.alcohol.notes[normalizedName]}`); } 
             else if (prodType === 'firearms') { if (!rules.firearms.allowed.includes(normalizedName)) warnings.push("Firearms/Ammo: Carrier not explicitly listed as friendly. Check rules tariff."); else if (rules.firearms.notes[normalizedName]) infos.push(`${rules.firearms.notes[normalizedName]}`); }
 
+            // BULLETPROOF: Dynamic Liftgate Limit evaluation (Accounts for SEFL Residential crash)
             if (needsLiftgate && rules.liftgate.limits[normalizedName]) {
                 const lg = rules.liftgate.limits[normalizedName];
                 let violated = false; let viols = [];
+                let limitW = (isRes && lg.resiW) ? lg.resiW : lg.w;
+
                 if (q.maxDims && q.maxDims.weight > 0) {
-                    if (lg.w && q.maxDims.weight > lg.w) { violated = true; viols.push(`Weight > ${lg.w}lbs`); }
+                    if (limitW && q.maxDims.weight > limitW) { violated = true; viols.push(`Weight > ${limitW}lbs`); }
                     if (lg.l && q.maxDims.length > lg.l) { violated = true; viols.push(`L > ${lg.l}"`); }
                     if (lg.wid && q.maxDims.width > lg.wid) { violated = true; viols.push(`W > ${lg.wid}"`); }
                     if (lg.h && q.maxDims.height > lg.h) { violated = true; viols.push(`H > ${lg.h}"`); }
                     if (lg.warnL && q.maxDims.length > lg.warnL) warnings.push(`Liftgate Fee: Over ${lg.warnL}" L (Possible double charge)`);
-                    if (violated) { warnings.push(`Liftgate Exceeded: ${viols.join(', ')} (${lg.note})`); if(isAllowed) { statusClass = 'badge-warn'; statusText = t.warnLiftgate; } } 
+                    
+                    if (violated) { 
+                        warnings.push(`Liftgate Exceeded: ${viols.join(', ')} (${lg.note})`); 
+                        if(isAllowed) { statusClass = 'badge-warn'; statusText = t.warnLiftgate; } 
+                    } 
                     else if (checkLiftgate) warnings.push(`Liftgate Note: ${lg.note}`);
-                } else if (checkLiftgate) { warnings.push(`Liftgate Limit: ${lg.note}`); if(isAllowed) { statusClass = 'badge-warn'; statusText = t.warnLiftgate; } }
+                } else if (checkLiftgate) { 
+                    warnings.push(`Liftgate Limit: ${lg.note}`); 
+                    if(isAllowed) { statusClass = 'badge-warn'; statusText = t.warnLiftgate; } 
+                }
             }
 
             if (checkCubic) { warnings.push(`Cubic/Length: ${rules.cubic.notes[normalizedName] || rules.cubic.defaultNote}`); if(isAllowed) { statusClass = 'badge-warn'; statusText = t.warnCubic; } }
 
-            const rating = getCarrierRating(normalizedName);
             let numericDays = parseInt(quote.days); if (isNaN(numericDays)) numericDays = 99;
             if (isAllowed) { if (warnings.length > 0) { statusClass = 'badge-warn'; statusText = t.statWarn; } } else statusClass = 'badge-error';
 
-            return { ...quote, normalizedName, isAllowed, warnings, infos, statusClass, statusText, rating, numericDays, isBestPick: false };
+            return { ...quote, normalizedName, isAllowed, warnings, infos, statusClass, statusText, numericDays };
         });
 
-        let allowedQuotes = q.processedRates.filter(r => r.isAllowed && r.isSelected !== false);
-        if (allowedQuotes.length > 0) {
-            allowedQuotes.sort((a,b) => a.cost - b.cost); allowedQuotes.forEach((r, i) => r.priceRank = i + 1);
-            allowedQuotes.sort((a,b) => a.numericDays - b.numericDays); allowedQuotes.forEach((r, i) => r.daysRank = i + 1);
-            allowedQuotes.sort((a,b) => b.rating - a.rating); allowedQuotes.forEach((r, i) => r.ratingRank = i + 1);
-            allowedQuotes.forEach(r => { r.bestScore = (r.priceRank * 1.5) + (r.daysRank * 1.0) + (r.ratingRank * 0.5); });
-            allowedQuotes.sort((a,b) => a.bestScore - b.bestScore);
-            allowedQuotes[0].isBestPick = true;
-        }
-
-        if (sortBy === 'cheapest') { q.processedRates.sort((a,b) => a.cost - b.cost); } 
-        else if (sortBy === 'fastest') { q.processedRates.sort((a,b) => { if (a.numericDays === b.numericDays) return a.cost - b.cost; return a.numericDays - b.numericDays; }); } 
-        else if (sortBy === 'best_rating') { q.processedRates.sort((a,b) => { if (b.rating === a.rating) return a.cost - b.cost; return b.rating - a.rating; }); }
+        if (sortBy === 'cheapest') { 
+            q.processedRates.sort((a,b) => a.cost - b.cost); 
+        } 
+        else if (sortBy === 'fastest') { 
+            q.processedRates.sort((a,b) => { 
+                if (a.numericDays === b.numericDays) return a.cost - b.cost; 
+                return a.numericDays - b.numericDays; 
+            }); 
+        } 
 
         const trGroup = document.createElement('tr');
         trGroup.classList.add('group-header-row');
         
         let allSelected = q.processedRates.every(r => r.isSelected !== false);
-        let tableGroupTitle = isBatch ? `📦 ${q.id !== '-' ? q.id + ' | ' : ''}${q.label}: ${q.from || 'Origin'} ➡️ ${q.to || 'Dest'}` : `📦 ${q.id !== '-' ? q.id : 'N/A'} | Priority 1 Quote | ${q.from || 'Origin'} ➡️ ${q.to || 'Dest'}`;
+        let tableGroupTitle = `📦 ${q.id !== '-' ? q.id + ' | ' : ''}${isBatch ? q.label : 'Priority 1 Quote'} | ${q.from || 'Origin'} ➡️ ${q.to || 'Dest'}`;
         
         trGroup.innerHTML = `<td colspan="8" style="font-weight: bold; color: var(--primary); font-size: 0.9rem; border-top: 2px solid var(--primary);">
             <div style="display:flex; align-items:center; gap:8px;">
-                <input type="checkbox" ${allSelected ? 'checked' : ''} onchange="toggleAllCarriers(${appQuotes.indexOf(q)}, this.checked)" title="Toggle all carriers in this quote" style="cursor:pointer;">
+                <input type="checkbox" ${allSelected ? 'checked' : ''} onchange="toggleAllCarriers(this, ${appQuotes.indexOf(q)})" title="Toggle all carriers in this quote" style="cursor:pointer;">
                 <span>${tableGroupTitle}</span>
             </div>
         </td>`;
@@ -881,13 +953,9 @@ function renderTable() {
             let htmlNotes = row.warnings.map(w => `<div class="note-text" style="color:var(--warning)"><span class="note-icon">⚠️</span><span>${w}</span></div>`).join('') + row.infos.map(i => `<div class="note-text"><span class="note-icon">ℹ️</span><span>${i}</span></div>`).join('');
             let daysText = String(row.days).trim(); if(daysText !== '') { if (daysText === '1') daysText += ` ${t.day}`; else if (!isNaN(daysText) || daysText.match(/^\d+(\s*-\s*\d+)?$/)) daysText += ` ${t.days}`; }
 
-            const domain = getCarrierDomain(row.normalizedName); const iconHtml = domain ? `<img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" class="carrier-icon" onerror="this.style.display='none'">` : '';
-            let toolsHtml = ''; const cInfo = carrierInfo[row.normalizedName.toLowerCase()];
-            if(cInfo) {
-                let tooltipText = `${t.ttContact} ${row.normalizedName}:\n──────────────────\n📊 ${t.ttOnTime}: ${cInfo.onTime || 'N/A'}\n📦 ${t.ttClaims}: ${cInfo.claims || 'N/A'}\n`;
-                if(cInfo.phone || cInfo.email) tooltipText += `──────────────────\n📞 ${t.ttPhone}: ${cInfo.phone || '-'}\n✉️ ${t.ttEmail}: ${cInfo.email || '-'}`;
-                toolsHtml += `<span class="info-icon" title="${tooltipText}">ℹ️</span>`;
-            }
+            // BULLETPROOF: Restaurar iconos en UI basándonos en el dominio auditado
+            const domain = getCarrierDomain(row.normalizedName); 
+            const iconHtml = domain ? `<img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 6px; border-radius: 3px;" onerror="this.style.display='none'">` : '';
 
             let liabilityHtml = '';
             if (row.liability && row.liability !== '-') {
@@ -898,11 +966,9 @@ function renderTable() {
             }
 
             let refHtml = row.quoteNumber && row.quoteNumber !== '-' ? `<div style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace; margin-top: 2px;">${t.refLabel} ${row.quoteNumber}</div>` : '';
-            let starsHtml = row.isAllowed ? generateStarsHTML(row.rating) : '';
             let typeBadgeClass = row.rateType === 'Volume' ? 'badge-vol' : 'badge-ltl';
             let typeText = row.rateType === 'Volume' ? t.rateVol : t.rateLTL;
             let rateTypeHtml = `<span class="badge ${typeBadgeClass}" style="font-size: 0.6rem; margin-left: 6px; vertical-align: middle;">${typeText}</span>`;
-            let bestPickHtml = row.isBestPick ? `<span class="badge badge-best" style="font-size: 0.6rem; margin-left: 6px; vertical-align: middle;">🌟 ${t.bestPick}</span>` : '';
 
             let priceHtml = `$${row.cost.toFixed(2)}`;
             if (insVal > 0) {
@@ -930,18 +996,16 @@ function renderTable() {
             if (!row.isAllowed) tr.classList.add('disabled-row');
             if (row.isSelected === false) tr.classList.add('excluded-row');
             
+            // BULLETPROOF: Inline-block for cells to avoid flexbox width jumps, re-injected iconHtml
             tr.innerHTML = `
-                <td>
-                    <div class="carrier-name-wrapper" style="align-items: center;">
-                        <input type="checkbox" ${row.isSelected !== false ? 'checked' : ''} onchange="toggleCarrierSelection(${appQuotes.indexOf(q)}, '${row.id}', this.checked)" style="margin-right: 8px; cursor: pointer;" title="Include in export">
-                        <div>
-                            <div class="carrier-name">${row.normalizedName}</div>${rateTypeHtml}${bestPickHtml}
-                            <div>${starsHtml}</div>
-                            ${refHtml}
-                            <div class="carrier-tools" style="margin-top: 4px;">${toolsHtml}</div>
-                        </div>
+                <td style="white-space: nowrap;">
+                    <div style="display: inline-block; vertical-align: middle;">
+                        <input type="checkbox" ${row.isSelected !== false ? 'checked' : ''} onchange="toggleCarrierSelection(this, ${appQuotes.indexOf(q)}, '${row.id}')" style="vertical-align: middle; margin-right: 6px; cursor: pointer;" title="Include in export">
                         ${iconHtml}
+                        <span class="carrier-name" style="vertical-align: middle;">${row.normalizedName}</span>
+                        ${rateTypeHtml}
                     </div>
+                    ${refHtml}
                 </td>
                 <td class="price" style="${!row.isAllowed ? 'color:var(--text-muted);' : ''}">${priceHtml}</td>
                 ${showInternalCols && (exportCarrierCost || exportMargin) ? internalCostHtml : (showInternalCols ? '<td>-</td>' : '')}
@@ -960,7 +1024,6 @@ function getReportHTML(isPdf = false) {
     const t = dict[currentLang]; 
     const isBatch = document.getElementById('batchMode').checked;
     let includeNotes = document.getElementById('exportNotes').checked;
-    let includeRating = document.getElementById('exportRating').checked;
     let exportCarrierCost = document.getElementById('exportCarrierCost') ? document.getElementById('exportCarrierCost').checked : false;
     let exportMargin = document.getElementById('exportMargin') ? document.getElementById('exportMargin').checked : false;
     
@@ -985,7 +1048,7 @@ function getReportHTML(isPdf = false) {
     let html = `<div id="exportWrapper" style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: ${th.text}; ${isPdf ? 'width: 100%;' : 'max-width: 800px;'} background-color: ${th.bg}; padding: 10px; box-sizing: border-box;">`;
 
     appQuotes.forEach((q, idx) => {
-        // BULLETPROOF: Filter out unselected rows from export
+        // BULLETPROOF: Filter out unselected rows from export dynamically
         let allowedRates = q.processedRates.filter(r => r.isAllowed && r.isSelected !== false);
         if (allowedRates.length === 0) return;
         
@@ -996,10 +1059,11 @@ function getReportHTML(isPdf = false) {
 
         html += `<div style="page-break-inside: avoid; margin-bottom: 24px;">`;
 
-        let reportGroupTitle = isBatch ? `📦 ${q.id !== '-' ? q.id + ' | ' : ''}${q.label}` : `📦 ${q.id !== '-' ? q.id : 'N/A'} | Priority 1 Quote`;
+        // BULLETPROOF ID FORMATTING: Force display block and align left to prevent browser injected flexbox artifacts during copy
+        let reportGroupTitle = `📦 ${q.id !== '-' ? q.id + ' | ' : ''}${isBatch ? q.label : 'Priority 1 Quote'}`;
 
         html += `
-            <h3 style="color: ${th.primary}; border-bottom: 2px solid ${th.border}; padding-bottom: 8px; margin-bottom: 16px;">${reportGroupTitle}</h3>
+            <h3 style="display: block; text-align: left; margin: 0 0 16px 0; color: ${th.primary}; border-bottom: 2px solid ${th.border}; padding-bottom: 8px;">${reportGroupTitle}</h3>
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">
                 <tr><td style="padding: 4px 0; color: ${th.text}; width: 100px;"><strong>${t.lblFrom}:</strong></td><td style="padding: 4px 0; color: ${th.text};">${q.from || 'N/A'}</td></tr>
                 <tr><td style="padding: 4px 0; color: ${th.text};"><strong>${t.lblTo}:</strong></td><td style="padding: 4px 0; color: ${th.text};">${q.to || 'N/A'}</td></tr>
@@ -1050,16 +1114,17 @@ function getReportHTML(isPdf = false) {
                 } else liabilityHtml = `<span style="font-size: 12px; color: ${th.text}; font-family: monospace;">${row.liability}</span>`;
             }
             
-            let emailStars = '';
-            if (includeRating) {
-                emailStars = `<span style="color: #f59e0b; font-size: 12px;">${getEmailStars(row.rating)}</span> <span style="font-size: 10px; color: ${th.textMuted};">(${row.rating.toFixed(1)})</span>`;
-            }
-            
             let typeText = row.rateType === 'Volume' ? t.rateVol : t.rateLTL;
-            let rateTypeHtml = row.rateType === 'Volume' ? `<span style="color: ${th.text}; padding: 2px 4px; border-radius: 4px; font-size: 10px; border: 1px solid ${th.border}; margin-left: 6px; vertical-align: middle;">${typeText}</span>` : `<span style="color: ${th.textMuted}; padding: 2px 4px; border-radius: 4px; font-size: 10px; border: 1px solid ${th.border}; margin-left: 6px; vertical-align: middle;">${typeText}</span>`;
+            // BULLETPROOF: Inyectando color primario para Volume directo en el HTML del correo.
+            let rateTypeHtml = row.rateType === 'Volume' 
+                ? `<span style="background-color: ${th.primary}; color: #ffffff; border: 1px solid ${th.primary}; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 6px; vertical-align: middle; text-transform: uppercase;">${typeText}</span>` 
+                : `<span style="background-color: ${th.thBg}; color: ${th.textMuted}; border: 1px solid ${th.border}; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 6px; vertical-align: middle; text-transform: uppercase;">${typeText}</span>`;
 
-            let carrierExtra = includeRating ? `<br>${emailStars}` : '';
-            if(row.quoteNumber !== '-') carrierExtra += `<br><span style="font-size:10px; color:${th.textMuted};">${t.refLabel} ${row.quoteNumber}</span>`;
+            let carrierExtra = row.quoteNumber !== '-' ? `<br><span style="font-size:10px; color:${th.textMuted};">${t.refLabel} ${row.quoteNumber}</span>` : '';
+
+            // BULLETPROOF: Inyectar imagen con fallback onerror para evitar bloqueos visuales en Outlook.
+            const domain = getCarrierDomain(row.normalizedName); 
+            const iconHtml = domain ? `<img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 6px; border-radius: 2px; margin-bottom: 2px;" onerror="this.style.display='none'" alt="">` : '';
 
             let rateHtml = `$${row.cost.toFixed(2)}`;
             if (insVal > 0) {
@@ -1068,7 +1133,7 @@ function getReportHTML(isPdf = false) {
             }
 
             let rowHTML = `<tr>
-                <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.text}; vertical-align: top;"><strong style="vertical-align: middle;">${row.normalizedName}</strong>${rateTypeHtml}${carrierExtra}</td>
+                <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.text}; vertical-align: top;">${iconHtml}<strong style="vertical-align: middle;">${row.normalizedName}</strong>${rateTypeHtml}${carrierExtra}</td>
                 <td style="border: 1px solid ${th.border}; padding: 10px; color: ${th.primary}; font-weight: bold; font-size: 14px; vertical-align: top;">${rateHtml}</td>`;
             
             if (hasInternalCols) {
@@ -1102,7 +1167,7 @@ function getReportHTML(isPdf = false) {
 }
 
 function exportToPdf() {
-    if (appQuotes.length === 0) { alert(dict[currentLang].errNoRates); return; }
+    if (appQuotes.length === 0) { return; }
     
     const btn = document.getElementById('exportPdfBtn');
     const originalText = btn.innerText;
@@ -1132,7 +1197,7 @@ function exportToPdf() {
 }
 
 function copyForEmail() {
-    if (appQuotes.length === 0) { alert(dict[currentLang].errNoRates); return; }
+    if (appQuotes.length === 0) { return; }
     const t = dict[currentLang]; 
     
     const currentTheme = document.documentElement.getAttribute('data-theme');
@@ -1186,10 +1251,9 @@ function copyForEmail() {
 }
 
 function exportToCsv() {
-    if (appQuotes.length === 0) { alert(dict[currentLang].errNoRates); return; }
+    if (appQuotes.length === 0) { return; }
     
     let includeNotes = document.getElementById('exportNotes').checked;
-    let includeRating = document.getElementById('exportRating').checked;
     let exportCarrierCost = document.getElementById('exportCarrierCost') ? document.getElementById('exportCarrierCost').checked : false;
     let exportMargin = document.getElementById('exportMargin') ? document.getElementById('exportMargin').checked : false;
     const isBatch = document.getElementById('batchMode').checked;
@@ -1199,7 +1263,6 @@ function exportToCsv() {
     appQuotes.forEach(q => { if (q.insurance > 0) hasInsurance = true; });
     
     let headers = ["Batch Name", "P1 Quote#", "Origin", "Destination", "Type", "Carrier"];
-    if (includeRating) headers.push("Rating");
     headers.push("Carrier Quote ID", "Base Rate");
     
     if (hasInternalCols) {
@@ -1219,7 +1282,7 @@ function exportToCsv() {
     appQuotes.forEach(q => {
         let insVal = q.insurance || 0;
         
-        // BULLETPROOF: Filter out unselected rows from CSV
+        // BULLETPROOF: Filter out unselected rows from CSV dynamically
         let allowedRates = q.processedRates.filter(r => r.isAllowed && r.isSelected !== false);
         
         allowedRates.forEach(row => {
@@ -1231,8 +1294,6 @@ function exportToCsv() {
             let safeDest = q.to !== '-' ? q.to : '';
 
             let rowData = [isBatch ? q.label : "Priority 1 Quote", safeQuoteId, safeOrigin, safeDest, typeText, row.normalizedName];
-
-            if (includeRating) rowData.push(row.rating.toFixed(1));
             
             rowData.push(row.quoteNumber !== '-' ? row.quoteNumber : '');
             rowData.push(row.cost.toFixed(2));
