@@ -3,7 +3,7 @@
   "killSwitchMessage": "⚠️ La extensión está suspendida temporalmente por mantenimiento de Priority1.",
   "announcement": {
     "show": true,
-    "message": "🔥 Bienvenido a P1 Smart Parser v2.0 - Batch Mode Activado",
+    "message": "🔥 Welcome to Smart Quote Parser tool",
     "type": "info"
   },
   "features": {
