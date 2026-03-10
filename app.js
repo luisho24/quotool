@@ -334,7 +334,7 @@ function initApp() {
 
 // BULLETPROOF: Local GitHub Hosted Icons Mapping
 function getCarrierLogo(normalizedName) {
-    const baseUrl = 'https://raw.githubusercontent.com/luisho24/quotool/main/logos/';
+    const baseUrl = 'https://raw.githubusercontent.com/luisho24/quotool/refs/heads/main/logos/';
     const n = normalizedName.toLowerCase();
     
     const iconMap = {
