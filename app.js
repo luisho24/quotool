@@ -98,6 +98,40 @@ function setAppTheme(themeName) {
     try { localStorage.setItem('ltl-app-theme', themeName); } catch(e){} 
 }
 
+// BULLETPROOF: Custom Theme Live Editor
+function handleColorChange() {
+    document.getElementById('emailTheme').value = 'custom';
+    
+    let customColors = {
+        primary: document.getElementById('cPrimary').value,
+        thBg: document.getElementById('cHeader').value,
+        bg: document.getElementById('cBg').value,
+        text: document.getElementById('cText').value,
+        border: document.getElementById('cBorder').value,
+        acc1: document.getElementById('cAcc').value
+    };
+    localStorage.setItem('ltl-custom-colors', JSON.stringify(customColors));
+    
+    // Auto-open preview to show live changes
+    openEmailPreview();
+}
+
+function loadCustomColors() {
+    try {
+        let saved = localStorage.getItem('ltl-custom-colors');
+        if (saved) {
+            let colors = JSON.parse(saved);
+            if(colors.primary) document.getElementById('cPrimary').value = colors.primary;
+            if(colors.thBg) document.getElementById('cHeader').value = colors.thBg;
+            if(colors.bg) document.getElementById('cBg').value = colors.bg;
+            if(colors.text) document.getElementById('cText').value = colors.text;
+            if(colors.border) document.getElementById('cBorder').value = colors.border;
+            if(colors.acc1) document.getElementById('cAcc').value = colors.acc1;
+        }
+    } catch(e){}
+}
+
+
 const dict = {
     es: {
         mainTitle: "📊 Parser Inteligente de Cotizaciones LTL",
@@ -278,6 +312,8 @@ function initApp() {
         document.getElementById('expToggle').checked = expEnabled;
         toggleExperimental(expEnabled);
         
+        loadCustomColors();
+        
     } catch(e){}
 
     setLang('en');
@@ -296,51 +332,60 @@ function initApp() {
     });
 }
 
-// BULLETPROOF: Database of precise carrier domains for logo fetching
-function getCarrierDomain(normalizedName) {
-    const domains = { 
-        "aaa cooper": "aaacooper.com", 
-        "abf": "arcb.com", 
-        "averitt express": "averitt.com", 
-        "southeastern freight": "sefl.com", 
-        "old dominion": "odfl.com", 
-        "xpo": "xpo.com", 
-        "tforce": "tforcefreight.com", 
-        "fedex": "fedex.com", 
-        "fedex priority": "fedex.com", 
-        "fedex economy": "fedex.com", 
-        "ward": "wardtlc.com", 
-        "saia": "saia.com", 
-        "r&l carriers": "rlcarriers.com", 
-        "estes": "estes-express.com", 
-        "central transport": "centraltransport.com", 
-        "dayton freight": "daytonfreight.com", 
-        "a. duie pyle": "aduiepyle.com", 
-        "pitt ohio": "pittohio.com", 
-        "custom companies": "customco.com", 
-        "frontline": "frontlinefreightinc.com", 
-        "daylight": "dylt.com", 
-        "forward air": "forwardair.com", 
-        "roadrunner": "freight.rrts.com", 
-        "unis transportation": "unisco.com", 
-        "clear lane": "clearlanefreightsystems.com", 
-        "n&m transfer": "nmtransfer.com", 
-        "cross country": "ccfsi.com", 
-        "dohrn transfer": "dohrn.com", 
-        "magnum": "magnumlog.com", 
-        "a & b freight line": "abfreight.com", 
-        "double d express": "doubledexpress.com", 
-        "fort transportation": "forttransport.com", 
-        "performance freight": "pfsfreight.com", 
-        "rude transportation": "rudefreight.com", 
-        "southwestern motor transport": "smtl.com", 
-        "tax airfreight": "taxair.com", 
-        "go2 logistics": "go2logistics.com",
-        "oak harbor freight lines": "oakh.com",
-        "dugan": "dugantruckline.com",
-        "total transportation": "totaltransportation.com"
+// BULLETPROOF: Local GitHub Hosted Icons Mapping
+function getCarrierLogo(normalizedName) {
+    const baseUrl = 'https://raw.githubusercontent.com/luisho24/quotool/main/logos/';
+    const n = normalizedName.toLowerCase();
+    
+    const iconMap = {
+        "aaa cooper": "aaa-cooper.png",
+        "abf": "abf.png",
+        "averitt express": "averitt.png",
+        "southeastern freight": "southeastern-freight.png",
+        "old dominion": "old-dominion-freight-line.png",
+        "xpo": "xpo.png",
+        "tforce": "tforce-freight.png",
+        "fedex economy": "fedex-economy.png",
+        "fedex priority": "fedex-priority.png",
+        "fedex": "fedex-priority.png",
+        "ward": "ward-trucking.png",
+        "saia": "saia.png",
+        "r&l carriers": "r-l-carriers.png",
+        "estes": "estes.png",
+        "central transport": "central-transport.png",
+        "dayton freight": "dayton-freight-lines.png",
+        "a. duie pyle": "a-duie-pyle.png",
+        "pitt ohio": "pitt-ohio.png",
+        "custom companies": "custom-companies.png",
+        "frontline": "frontline-freight.png",
+        "daylight": "daylight-transport.png",
+        "forward air": "forward.png",
+        "roadrunner": "roadrunner-transportation-systems.png",
+        "unis transportation": "unis-transportation.png",
+        "n&m transfer": "n-m-transfer.png",
+        "cross country": "cross-country-freight-solutions.png",
+        "dohrn transfer": "dohrn-transfer.png",
+        "magnum": "magnum.png",
+        "a & b freight line": "a-b-freight-line.png",
+        "double d express": "double-d-express.png",
+        "fort transportation": "fort-transportation.png",
+        "performance freight": "performance-freight-systems-inc.png",
+        "rude transportation": "rude-transportation.png",
+        "southwestern motor transport": "southwestern-motor-transport.png",
+        "tax airfreight": "tax-airfreight.png",
+        "go2 logistics": "go2-logistics.png",
+        "oak harbor freight lines": "oak-harbor-freight.png",
+        "dugan": "dugan-truck-line.png",
+        "total transportation": "total-transportation-distribution.png"
     };
-    return domains[normalizedName.toLowerCase()] || null;
+
+    if (iconMap[n]) {
+        return baseUrl + iconMap[n];
+    }
+    
+    // Dynamic Fallback Slug Generator (if not in dictionary, try to build it)
+    const fallbackSlug = n.replace(/[^a-z0-9]+/g, '-') + '.png';
+    return baseUrl + fallbackSlug;
 }
 
 const rules = {
@@ -775,7 +820,7 @@ function updateSummaryUI() {
             : `<strong>Warning:</strong> Residential delivery detected, but missing: <u>${missing.join(' and ')}</u>. Verify requirements.`;
 
         let warnHtml = showWarning === 'flex' ? `<div class="res-warning" style="display: flex; margin-top: 12px;">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" style="width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                 <span>${dynamicWarnMsg}</span>
             </div>` : '';
 
@@ -822,6 +867,7 @@ function renderTable() {
     const btnCopy = document.getElementById('copyBtn');
     const btnCsv = document.getElementById('exportBtn');
     const btnPdf = document.getElementById('exportPdfBtn');
+    const btnPreview = document.getElementById('previewEmailBtn');
     
     if (appQuotes.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state" id="emptyText">${dict[currentLang].emptyText}</div></td></tr>`;
@@ -831,6 +877,7 @@ function renderTable() {
         if(btnCopy) btnCopy.disabled = true;
         if(btnCsv) btnCsv.disabled = true;
         if(btnPdf) btnPdf.disabled = true;
+        if(btnPreview) btnPreview.disabled = true;
         
         return;
     }
@@ -838,6 +885,7 @@ function renderTable() {
     if(btnCopy) btnCopy.disabled = false;
     if(btnCsv) btnCsv.disabled = false;
     if(btnPdf) btnPdf.disabled = false;
+    if(btnPreview) btnPreview.disabled = false;
 
     tbody.innerHTML = ''; 
     const t = dict[currentLang]; 
@@ -923,6 +971,7 @@ function renderTable() {
             return { ...quote, normalizedName, isAllowed, warnings, infos, statusClass, statusText, numericDays };
         });
 
+        // Apply strict secondary sorting: Fastest -> Cheapest fallback
         if (sortBy === 'cheapest') { 
             q.processedRates.sort((a,b) => a.cost - b.cost); 
         } 
@@ -953,9 +1002,9 @@ function renderTable() {
             let htmlNotes = row.warnings.map(w => `<div class="note-text" style="color:var(--warning)"><span class="note-icon">⚠️</span><span>${w}</span></div>`).join('') + row.infos.map(i => `<div class="note-text"><span class="note-icon">ℹ️</span><span>${i}</span></div>`).join('');
             let daysText = String(row.days).trim(); if(daysText !== '') { if (daysText === '1') daysText += ` ${t.day}`; else if (!isNaN(daysText) || daysText.match(/^\d+(\s*-\s*\d+)?$/)) daysText += ` ${t.days}`; }
 
-            // BULLETPROOF: Restaurar iconos en UI basándonos en el dominio auditado
-            const domain = getCarrierDomain(row.normalizedName); 
-            const iconHtml = domain ? `<img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 6px; border-radius: 3px;" onerror="this.style.display='none'">` : '';
+            // BULLETPROOF: Inyectar logo directo desde GitHub
+            const logoUrl = getCarrierLogo(row.normalizedName); 
+            const iconHtml = logoUrl ? `<img src="${logoUrl}" style="width: 24px; height: 24px; object-fit: contain; vertical-align: middle; margin-right: 6px; border-radius: 3px;" onerror="this.style.display='none'">` : '';
 
             let liabilityHtml = '';
             if (row.liability && row.liability !== '-') {
@@ -999,8 +1048,8 @@ function renderTable() {
             // BULLETPROOF: Inline-block for cells to avoid flexbox width jumps, re-injected iconHtml
             tr.innerHTML = `
                 <td style="white-space: nowrap;">
-                    <div style="display: inline-block; vertical-align: middle;">
-                        <input type="checkbox" ${row.isSelected !== false ? 'checked' : ''} onchange="toggleCarrierSelection(this, ${appQuotes.indexOf(q)}, '${row.id}')" style="vertical-align: middle; margin-right: 6px; cursor: pointer;" title="Include in export">
+                    <div style="display: inline-flex; align-items: center;">
+                        <input type="checkbox" ${row.isSelected !== false ? 'checked' : ''} onchange="toggleCarrierSelection(this, ${appQuotes.indexOf(q)}, '${row.id}')" style="vertical-align: middle; margin-right: 8px; cursor: pointer;" title="Include in export">
                         ${iconHtml}
                         <span class="carrier-name" style="vertical-align: middle;">${row.normalizedName}</span>
                         ${rateTypeHtml}
@@ -1020,7 +1069,8 @@ function renderTable() {
     document.getElementById('resultCount').innerText = t.resCount.replace('{0}', visibleCount);
 }
 
-function getReportHTML(isPdf = false) {
+// BULLETPROOF: Core Export HTML Builder (Now supports custom Themes and Mock Data)
+function getReportHTML(isPdf = false, targetQuotes = appQuotes) {
     const t = dict[currentLang]; 
     const isBatch = document.getElementById('batchMode').checked;
     let includeNotes = document.getElementById('exportNotes').checked;
@@ -1028,7 +1078,7 @@ function getReportHTML(isPdf = false) {
     let exportMargin = document.getElementById('exportMargin') ? document.getElementById('exportMargin').checked : false;
     
     const selectedThemeId = document.getElementById('emailTheme').value;
-    const hasInternalCols = appQuotes.some(q => q.hasInternalCols);
+    const hasInternalCols = targetQuotes.some(q => q.hasInternalCols);
     let hasVolume = false;
     
     const emailThemes = {
@@ -1043,12 +1093,27 @@ function getReportHTML(isPdf = false) {
         midnight: { bg: "#ffffff", thBg: "#0f172a", border: "#94a3b8", text: "#1e293b", textMuted: "#475569", primary: "#0f172a", acc1: "#020617", acc2: "#0f172a", thText: "#ffffff" },
         slate: { bg: "#ffffff", thBg: "#f8fafc", border: "#cbd5e1", text: "#334155", textMuted: "#64748b", primary: "#475569", acc1: "#1e293b", acc2: "#334155", thText: "#0f172a" }
     };
-    const th = emailThemes[selectedThemeId];
+
+    let th;
+    if (selectedThemeId === 'custom') {
+        th = {
+            bg: document.getElementById('cBg').value,
+            thBg: document.getElementById('cHeader').value,
+            border: document.getElementById('cBorder').value,
+            text: document.getElementById('cText').value,
+            textMuted: "#64748b", 
+            primary: document.getElementById('cPrimary').value,
+            acc1: document.getElementById('cAcc').value,
+            acc2: document.getElementById('cPrimary').value,
+            thText: document.getElementById('cText').value
+        };
+    } else {
+        th = emailThemes[selectedThemeId];
+    }
 
     let html = `<div id="exportWrapper" style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: ${th.text}; ${isPdf ? 'width: 100%;' : 'max-width: 800px;'} background-color: ${th.bg}; padding: 10px; box-sizing: border-box;">`;
 
-    appQuotes.forEach((q, idx) => {
-        // BULLETPROOF: Filter out unselected rows from export dynamically
+    targetQuotes.forEach((q, idx) => {
         let allowedRates = q.processedRates.filter(r => r.isAllowed && r.isSelected !== false);
         if (allowedRates.length === 0) return;
         
@@ -1059,7 +1124,6 @@ function getReportHTML(isPdf = false) {
 
         html += `<div style="page-break-inside: avoid; margin-bottom: 24px;">`;
 
-        // BULLETPROOF ID FORMATTING: Force display block and align left to prevent browser injected flexbox artifacts during copy
         let reportGroupTitle = `📦 ${q.id !== '-' ? q.id + ' | ' : ''}${isBatch ? q.label : 'Priority 1 Quote'}`;
 
         html += `
@@ -1115,16 +1179,15 @@ function getReportHTML(isPdf = false) {
             }
             
             let typeText = row.rateType === 'Volume' ? t.rateVol : t.rateLTL;
-            // BULLETPROOF: Inyectando color primario para Volume directo en el HTML del correo.
             let rateTypeHtml = row.rateType === 'Volume' 
                 ? `<span style="background-color: ${th.primary}; color: #ffffff; border: 1px solid ${th.primary}; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 6px; vertical-align: middle; text-transform: uppercase;">${typeText}</span>` 
                 : `<span style="background-color: ${th.thBg}; color: ${th.textMuted}; border: 1px solid ${th.border}; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 6px; vertical-align: middle; text-transform: uppercase;">${typeText}</span>`;
 
             let carrierExtra = row.quoteNumber !== '-' ? `<br><span style="font-size:10px; color:${th.textMuted};">${t.refLabel} ${row.quoteNumber}</span>` : '';
 
-            // BULLETPROOF: Inyectar imagen con fallback onerror para evitar bloqueos visuales en Outlook.
-            const domain = getCarrierDomain(row.normalizedName); 
-            const iconHtml = domain ? `<img src="https://www.google.com/s2/favicons?domain=${domain}&sz=32" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 6px; border-radius: 2px; margin-bottom: 2px;" onerror="this.style.display='none'" alt="">` : '';
+            // BULLETPROOF: Inyectar logo en correo y PDF
+            const logoUrl = getCarrierLogo(row.normalizedName); 
+            const iconHtml = logoUrl ? `<img src="${logoUrl}" style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle; margin-right: 6px; border-radius: 2px;" onerror="this.style.display='none'" alt="">` : '';
 
             let rateHtml = `$${row.cost.toFixed(2)}`;
             if (insVal > 0) {
@@ -1164,6 +1227,58 @@ function getReportHTML(isPdf = false) {
     if (hasVolume) html += `<p style="margin-top: 16px; font-size: 10px; color: ${th.textMuted}; line-height: 1.4; border-top: 1px dashed ${th.border}; padding-top: 12px;">${t.volDisclaimer}</p>`;
     html += `</div>`;
     return html;
+}
+
+// EMAIL PREVIEW LOGIC
+function openEmailPreview() {
+    let quotesToRender = appQuotes;
+
+    // Bulletproof Fallback: If empty, inject highly realistic Mock Data
+    if (quotesToRender.length === 0) {
+        quotesToRender = [{
+            label: "Priority 1 Quote",
+            id: "38927499",
+            from: "Los Angeles, California 90001 US",
+            to: "Miami, Texas 33101 US",
+            items: [
+                { text: "1 Pallet(s) - 1500lbs - 48\" x 40\" x 60\" - Class: 70", isSub: false },
+                { text: "2 Pallet(s) - 2000lbs - 48\" x 40\" x 48\" - Class: 65", isSub: false }
+            ],
+            accessorials: ["Lift Gate Delivery", "Residential Delivery"],
+            hasInternalCols: true,
+            processedRates: [
+                { id: "m1", carrier: "FedEx Priority", normalizedName: "FedEx Priority", cost: 580.45, carrierCost: "450.00", margin: "22%", expiration: "12/31/2026", quoteNumber: "FX192384", liability: "1000/200", service: "Priority", days: "2", rateType: "LTL", isAllowed: true, warnings: [], infos: [], statusClass: "badge-ok", statusText: "Compatible", numericDays: 2, isSelected: true },
+                { id: "m2", carrier: "Saia", normalizedName: "Saia", cost: 410.15, carrierCost: "310.00", margin: "24%", expiration: "12/31/2026", quoteNumber: "SA99231", liability: "500/100", service: "Standard Rate", days: "4", rateType: "Volume", isAllowed: true, warnings: ["Liftgate Note: Max 5000 lbs"], infos: [], statusClass: "badge-warn", statusText: "Liftgate Warning", numericDays: 4, isSelected: true }
+            ]
+        }];
+    }
+
+    const previewContainer = document.getElementById('previewContainer');
+    const htmlContent = getReportHTML(false, quotesToRender);
+    
+    // Create an isolated shadow DOM structure to prevent our app's CSS from infecting the preview
+    previewContainer.innerHTML = '';
+    const iframe = document.createElement('iframe');
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.border = 'none';
+    iframe.style.backgroundColor = '#ffffff';
+    previewContainer.appendChild(iframe);
+    
+    iframe.contentWindow.document.open();
+    iframe.contentWindow.document.write(htmlContent);
+    iframe.contentWindow.document.close();
+
+    document.getElementById('emailPreviewModal').style.display = 'flex';
+}
+
+function closeEmailPreview() {
+    document.getElementById('emailPreviewModal').style.display = 'none';
+}
+
+function copyForEmailFromPreview() {
+    closeEmailPreview();
+    copyForEmail();
 }
 
 function exportToPdf() {
